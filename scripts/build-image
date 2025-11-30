@@ -1,0 +1,103 @@
+#!/bin/bash
+# build-image - Build COCOON TDX VM image using mkosi
+set -e
+
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+
+cd "$REPO_ROOT/reprodebian"
+
+# Parse options
+FORCE="yes"
+BUILD_TYPE="prod"
+
+while [[ $# -gt 0 ]]; do
+    case $1 in
+        --fast|--incremental)
+            FORCE="no"
+            shift
+            ;;
+        prod|test)
+            BUILD_TYPE="$1"
+            shift
+            ;;
+        -h|--help)
+            echo "Usage: $0 [OPTIONS] [prod|test]"
+            echo ""
+            echo "Build COCOON TDX VM image using mkosi"
+            echo ""
+            echo "Options:"
+            echo "  --fast, --incremental    Incremental build (reuse artifacts, faster)"
+            echo "  -h, --help               Show this help message"
+            echo ""
+            echo "Build types:"
+            echo "  prod                     Production image (no debug shell, default)"
+            echo "  test                     Test image (with debug shell)"
+            echo ""
+            echo "Examples:"
+            echo "  $0                       # Full rebuild, production image"
+            echo "  $0 --fast                # Incremental build, production image"
+            echo "  $0 --fast test           # Incremental build, test image"
+            echo "  $0 test                  # Full rebuild, test image"
+            exit 0
+            ;;
+        *)
+            echo "Unknown option: $1" >&2
+            echo "Use --help for usage information" >&2
+            exit 1
+            ;;
+    esac
+done
+
+echo "=== Building COCOON TDX Image ($BUILD_TYPE) ==="
+
+# Check/setup mkosi in venv
+if [[ ! -d venv ]]; then
+    echo "Setting up Python venv..."
+    python3 -m venv venv
+fi
+. venv/bin/activate
+pip install git+https://github.com/systemd/mkosi.git@c5324fcdd26863c5349785f765fa34af0a45e394
+
+# Fetch dependencies
+echo "Fetching dependencies..."
+./fetch-deps.sh
+
+# Build with mkosi
+MKOSI_CMD="mkosi build"
+if [[ "$BUILD_TYPE" == "test" ]]; then
+    MKOSI_CMD="$MKOSI_CMD --profile=autologin --debug-shell"
+fi
+
+if [[ "$FORCE" == "yes" ]]; then
+    echo "Full rebuild mode (use --fast for incremental build)"
+    [[ -d "$REPO_ROOT/build-reprodebian" ]] && rm -r "$REPO_ROOT/build-reprodebian"
+    MKOSI_CMD="$MKOSI_CMD -ff"
+else
+    MKOSI_CMD="$MKOSI_CMD -f"
+    echo "Fast incremental build (artifacts will be reused)"
+fi
+
+echo "Running: $MKOSI_CMD"
+$MKOSI_CMD
+
+# Move to images directory at repo root
+OUTPUT_DIR="$REPO_ROOT/images/$BUILD_TYPE"
+mkdir -p "$OUTPUT_DIR"
+mv image.img image.vmlinuz image.initrd image.cmdline "$OUTPUT_DIR/"
+cp OVMF.fd "$OUTPUT_DIR/"
+
+# Extract host binaries from build
+mkdir -p "$OUTPUT_DIR/host-bin"
+IMAGE_BIN="$REPO_ROOT/reprodebian/image/usr/bin"
+
+for binary in health-client seal-server enclave.signed.so; do
+    cp "$IMAGE_BIN/$binary" "$OUTPUT_DIR/host-bin/"
+    echo "Extracted host binary: $binary"
+done
+
+echo ""
+echo "=== Build complete ==="
+echo "Image location: images/$BUILD_TYPE/"
+ls -lh "$OUTPUT_DIR"/{image.img,image.vmlinuz,image.initrd,image.cmdline,OVMF.fd}
+

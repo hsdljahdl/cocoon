@@ -1,0 +1,15 @@
+# COCOON Proxy Configuration (INI format)
+# Copy this file to proxy.conf and edit
+
+[node]
+# Required: Node type
+type = proxy
+
+# Required: Your TON wallet address
+owner_address = UQAuz15H1ZHrZ_psVrAra7HealMIVeFq0wguqlmFno1f3B-m
+
+# Optional: Instance number for running multiple proxies (default: 0)
+# instance = 0
+
+# Optional: Persistent disk image (default: persistent-proxy-{instance}.img)
+# persistent = persistent-proxy-0.img

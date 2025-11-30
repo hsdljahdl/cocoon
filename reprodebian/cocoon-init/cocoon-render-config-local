@@ -1,0 +1,34 @@
+#!/bin/bash
+# cocoon-render-config-local - Render config for local testing
+set -euo pipefail
+
+[[ $# -ne 1 ]] && { echo "Usage: $0 <config-file>" >&2; exit 1; }
+
+config_file="$1"
+
+# Extract directory from config path
+if [[ "$config_file" == */* ]]; then
+    spec_dir="$(dirname "$config_file")"
+    config_file="$(basename "$config_file")"
+else
+    spec_dir="$(pwd)"
+fi
+
+template="$spec_dir/$config_file"
+RUN_DIR="${COCOON_RUN_DIR:-/tmp/run}"
+output="$RUN_DIR/$config_file"
+
+[[ ! -f "$template" ]] && { echo "ERROR: Template not found: $template" >&2; exit 1; }
+
+mkdir -p "$RUN_DIR"
+rm -f "$output"
+
+# Apply runtime.vars with validation (no system.vars in local mode)
+"${COCOON_SUBST:-cocoon-subst}" "$template" "$spec_dir/runtime/runtime.vars" "$output"
+
+chmod 444 "$output" 2>/dev/null || true
+
+echo "Rendered: $config_file -> $output"
+echo "=== Generated config ==="
+cat "$output"
+echo "=== End config ==="

@@ -1,0 +1,24 @@
+#!/bin/bash
+set -e
+
+rm -rv $OUTPUTDIR/image/boot/*
+mkfs.erofs -T 0 -U 9eff8e1b-3234-4b76-b96c-b50b7d8cab1e -L tdx_root "$OUTPUTDIR/image-rootfs.raw" "$OUTPUTDIR/image"
+veritysetup format "$OUTPUTDIR/image-rootfs.raw" "$OUTPUTDIR/image-rootfs.verity.raw" --uuid=16961134-6412-4db8-96f9-3dd00bd6ffa3 --salt=00010203040506070809101a1b1c1d1e1f --root-hash-file="$OUTPUTDIR/image.hash"
+
+DATAUUID="$(head -c 32 "$OUTPUTDIR/image.hash" | sed -E "s/(.{8})(.{4})(.{4})(.{4})(.{12})/\1-\2-\3-\4-\5/")"
+VERITYUUID="$(tail -c 32 "$OUTPUTDIR/image.hash" | sed -E "s/(.{8})(.{4})(.{4})(.{4})(.{12})/\1-\2-\3-\4-\5/")"
+
+sed "s|@OUTPUTDIR@|$OUTPUTDIR|;s|@DATAUUID@|$DATAUUID|;s|@VERITYUUID@|$VERITYUUID|" "$SRCDIR/pkg-aux/genimage.conf"
+genimage --config <(sed "s|@OUTPUTDIR@|$OUTPUTDIR|;s|@DATAUUID@|$DATAUUID|;s|@VERITYUUID@|$VERITYUUID|" "$SRCDIR/pkg-aux/genimage.conf")
+
+echo "profiles: $PROFILES"
+
+cmdline="roothash=$(cat $OUTPUTDIR/image.hash) systemd.verity_root_options=panic-on-corruption systemd.verity=1 rd.live.overlay.overlayfs=1 loglevel=7 rd.live.overlay.size=1536m audit=0 console=tty0 console=hvc0 swiotlb=1048576"
+
+if grep -qP '\bautologin\b' <<<"$PROFILES"; then
+  cmdline="$cmdline systemd.debug_shell=1"
+else
+  cmdline="$cmdline systemd.getty_auto=no"
+fi
+
+echo "$cmdline" > $OUTPUTDIR/image.cmdline

@@ -1,0 +1,28 @@
+#!/bin/bash
+# cocoon-render-ton-config - Merge liteservers from runtime config into global TON config
+set -euo pipefail
+
+# Check for fake-ton mode - if enabled, no TON config needed
+if grep -Po '\bcocoon_fake_ton\b' /proc/cmdline >/dev/null 2>&1; then
+    echo "Fake-ton mode detected, skipping TON config rendering"
+    exit 0
+fi
+
+spec_dir="${1:-/spec}"
+output_dir="${2:-/run/spec}"
+
+template="$spec_dir/global.config.json"
+liteservers="$spec_dir/runtime/global.config.json"
+output="$output_dir/global.config.json"
+
+[[ ! -f "$template" ]] && { echo "ERROR: Template not found: $template" >&2; exit 1; }
+[[ ! -f "$liteservers" ]] && { echo "ERROR: Liteservers config not found: $liteservers" >&2; exit 1; }
+
+mkdir -p "$output_dir"
+
+jq --slurpfile liteservers "$liteservers" \
+  '.liteservers = $liteservers[0].liteservers' \
+  "$template" > "$output"
+
+echo "Rendered: global.config.json -> $output"
+

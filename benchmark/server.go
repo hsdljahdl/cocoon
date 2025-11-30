@@ -1,0 +1,45 @@
+package main
+
+import (
+	"fmt"
+	"io"
+	"net/http"
+	"strconv"
+	"time"
+)
+
+func stream(w http.ResponseWriter, r *http.Request) {
+	io.Copy(io.Discard, r.Body)
+	r.Body.Close()
+
+	q := r.URL.Query()
+	chunks, _ := strconv.Atoi(q.Get("chunks"))
+	if chunks <= 0 {
+		chunks = 50
+	}
+	bytesPer, _ := strconv.Atoi(q.Get("bytes"))
+	if bytesPer <= 0 {
+		bytesPer = 128
+	}
+	delayMs, _ := strconv.Atoi(q.Get("delay_ms"))
+
+	w.Header().Set("Content-Type", "application/json")
+	flusher, _ := w.(http.Flusher)
+
+	for i := 0; i < chunks; i++ {
+		fmt.Fprintf(w, `{"delta":"%0*s","i":%d}`+"\n", bytesPer, "", i)
+		flusher.Flush()
+		if delayMs > 0 {
+			time.Sleep(time.Duration(delayMs) * time.Millisecond)
+		}
+	}
+  fmt.Fprintf(w, `{"usage":{"prompt_tokens":34,"total_tokens":134,"completion_tokens":100,"completion_tokens_details":{"reasoning_tokens":10},"prompt_tokens_details":{"cached_tokens":11}}}`+"\n")
+}
+
+func main() {
+	http.HandleFunc("/v1/chat/completions", stream)
+	http.HandleFunc("/v1/models", stream)
+	fmt.Println("Server listening on :8000")
+	http.ListenAndServe(":8000", nil)
+}
+

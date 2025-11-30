@@ -1,0 +1,101 @@
+#!/bin/bash
+# prepare-worker-dist - Build image and prepare worker distribution repo
+set -e
+
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+
+# Parse arguments
+BUILD_TYPE="prod"
+DIST_DIR=""
+
+while [[ $# -gt 0 ]]; do
+    case $1 in
+        prod|test)
+            BUILD_TYPE="$1"
+            shift
+            ;;
+        -h|--help)
+            echo "Usage: $0 [BUILD_TYPE] [DIST_DIR]"
+            echo ""
+            echo "Prepare COCOON worker distribution from built image"
+            echo ""
+            echo "Arguments:"
+            echo "  BUILD_TYPE    Build type (prod or test, default: prod)"
+            echo "  DIST_DIR      Distribution directory (default: ../cocoon-worker-dist)"
+            echo ""
+            echo "Examples:"
+            echo "  $0                           # Use prod image"
+            echo "  $0 test                      # Use test image"
+            echo "  $0 prod /path/to/dist        # Custom distribution directory"
+            exit 0
+            ;;
+        *)
+            DIST_DIR="$1"
+            shift
+            ;;
+    esac
+done
+
+DIST_DIR="${DIST_DIR:-$REPO_ROOT/../cocoon-worker-dist}"
+
+echo "=== Preparing COCOON Worker Distribution ($BUILD_TYPE) ==="
+echo "Distribution directory: $DIST_DIR"
+
+# Step 1: Build/check image
+echo ""
+echo "Step 1: Checking image..."
+cd "$REPO_ROOT"
+
+IMAGE_SRC="images/$BUILD_TYPE"
+
+if [[ ! -f "$IMAGE_SRC/image.img" ]]; then
+    echo "ERROR: $IMAGE_SRC/image.img not found" >&2
+    echo "Build it first: ./scripts/build-image $BUILD_TYPE" >&2
+    exit 1
+fi
+
+echo "Image found: $(ls -lh $IMAGE_SRC/image.img | awk '{print $5}')"
+
+# Step 2: Prepare distribution
+echo ""
+echo "Step 2: Copying files..."
+
+rm -rf "$DIST_DIR"
+mkdir -p "$DIST_DIR"
+
+# Copy scripts
+mkdir -p "$DIST_DIR/scripts"
+cp scripts/cocoon-launch "$DIST_DIR/scripts/"
+cp scripts/setup-gpu-vfio "$DIST_DIR/scripts/"
+cp scripts/build-model "$DIST_DIR/scripts/"
+chmod +x "$DIST_DIR/scripts"/*
+
+# Copy host binaries (extracted during build-image)
+mkdir -p "$DIST_DIR/bin"
+for binary in health-client seal-server enclave.signed.so; do
+    cp "$IMAGE_SRC/host-bin/$binary" "$DIST_DIR/bin/"
+done
+chmod +x "$DIST_DIR/bin"/*
+
+# Copy spec
+mkdir -p "$DIST_DIR/spec"
+cp -r spec/spec-worker "$DIST_DIR/spec/"
+cp -r spec/spec-proxy "$DIST_DIR/spec/"
+cp -r spec/fake-ton "$DIST_DIR/spec/"
+cp spec/mainnet-base-ton-config.json "$DIST_DIR/spec/" 2>/dev/null || true
+
+# Copy image files (including OVMF.fd for reproducible TDX measurement)
+mkdir -p "$DIST_DIR/images/$BUILD_TYPE"
+cp "$IMAGE_SRC"/{image.img,image.vmlinuz,image.initrd,image.cmdline,OVMF.fd} "$DIST_DIR/images/$BUILD_TYPE/"
+
+# Copy distribution templates
+cp scripts/dist-worker/worker.conf.example "$DIST_DIR/"
+cp scripts/dist-worker/proxy.conf.example "$DIST_DIR/"
+cp scripts/dist-worker/README.md "$DIST_DIR/"
+
+echo ""
+echo "=== Distribution ready ==="
+echo "Location: $DIST_DIR"
+echo "Size: $(du -sh "$DIST_DIR" | awk '{print $1}')"
+echo ""

@@ -1,0 +1,14 @@
+#!/bin/bash
+set -euo pipefail
+set -x
+
+echo "INIT PROXY RUNNER"
+
+# Render proxy config with runtime values
+cocoon-render-config proxy-config.json
+
+cocoon-render-ton-config
+
+systemctl enable /spec/cocoon-router.service
+systemctl enable /spec/cocoon-proxy-runner.service
+systemctl start cocoon-router.service cocoon-proxy-runner.service

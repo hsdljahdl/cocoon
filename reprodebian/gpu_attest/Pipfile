@@ -1,0 +1,14 @@
+[[source]]
+url = "https://pypi.org/simple"
+verify_ssl = true
+name = "pypi"
+
+[packages]
+nv-local-gpu-verifier = {file = "/opt/nvtrust-2025.10.09.001/guest_tools/gpu_verifiers/local_gpu_verifier"}
+nv-attestation-sdk = {file = "/opt/nvtrust-2025.10.09.001/guest_tools/attestation_sdk"}
+
+[dev-packages]
+
+[requires]
+python_version = "3.13"
+python_full_version = "3.13.5"

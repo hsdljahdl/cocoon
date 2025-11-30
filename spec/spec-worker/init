@@ -1,0 +1,26 @@
+#!/bin/bash
+set -euo pipefail
+set -x
+
+echo "INIT WORKER RUNNER"
+
+# Mount modle
+# For now using cocoon-render-config to get access to MODEL_VERITY_HASH
+cocoon-render-config model.verity_hash
+MODEL_VERITY_HASH=$(cat /run/spec/model.verity_hash)
+time veritysetup open /dev/disk/by-id/virtio-model-tar model.tar /dev/disk/by-id/virtio-model-tar-verity $MODEL_VERITY_HASH
+time fuse-archive -o nocache /dev/mapper/model.tar /mnt/model
+
+# Render worker config with runtime values
+cocoon-render-config worker-config.json
+
+# Render ton config
+cocoon-render-ton-config
+
+BACKEND=sglang
+cocoon-render-config cocoon-$BACKEND.service
+
+systemctl enable /spec/cocoon-router.service
+systemctl enable /spec/cocoon-worker-runner.service
+systemctl enable /run/spec/cocoon-$BACKEND.service
+systemctl start cocoon-router.service cocoon-worker-runner.service cocoon-$BACKEND.service

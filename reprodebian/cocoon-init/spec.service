@@ -1,0 +1,14 @@
+[Unit]
+Description=cocoon specialization
+Requires=cocoon-ready.target
+After=cocoon-ready.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/spec/init
+StandardOutput=journal+console
+StandardError=journal+console
+
+[Install]
+WantedBy=multi-user.target

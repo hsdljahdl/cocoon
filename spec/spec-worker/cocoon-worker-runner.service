@@ -1,0 +1,14 @@
+[Unit]
+Description=TDX VLLM proxy
+Wants=vllm.service
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/worker-runner -c /run/spec/worker-config.json
+StandardOutput=journal+console
+StandardError=journal+console
+
+# Resource accounting (for health-monitor)
+CPUAccounting=yes
+MemoryAccounting=yes
+IOAccounting=yes

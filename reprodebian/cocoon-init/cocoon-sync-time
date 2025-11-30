@@ -1,0 +1,20 @@
+#!/bin/bash
+# cocoon-sync-time - Get current time, possibly synced with TON
+set -euo pipefail
+
+echo "cocoon-sync-time: Checking for fake-ton mode..." >&2
+
+# Check for fake-ton mode
+if grep -Po '\bcocoon_fake_ton\b' /proc/cmdline >/dev/null 2>&1; then
+    # Fake-ton: just print current time, no sync needed
+    TIMESTAMP=$(date +%s)
+    echo "cocoon-sync-time: Fake-ton mode detected, using system time: $TIMESTAMP" >&2
+    echo "$TIMESTAMP"
+else
+    # Real TON: sync and get timestamp from sync-time
+    echo "cocoon-sync-time: Real TON mode, syncing with blockchain..." >&2
+    TIMESTAMP=$(sync-time --ton-config /run/spec/global.config.json)
+    echo "cocoon-sync-time: Got blockchain time: $TIMESTAMP" >&2
+    echo "$TIMESTAMP"
+fi
+

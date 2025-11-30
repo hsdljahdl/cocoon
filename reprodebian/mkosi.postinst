@@ -1,0 +1,35 @@
+#!/bin/bash
+set -e
+umask 022
+
+mkosi-chroot dracut --regenerate-all --zstd --reproducible --add "systemd-veritysetup overlayfs" --force-drivers "ecdsa_generic ecdh" --no-hostonly --omit "virtfs virtiofs"
+mkosi-chroot systemctl enable cocoon-ready.target
+mkosi-chroot systemctl enable cocoon-cert-refresh.timer
+mkosi-chroot systemctl enable spec.service
+mkosi-chroot systemctl mask apt-daily.timer apt-daily-upgrade.timer dpkg-db-backup.timer
+mkosi-chroot systemctl mask apt-daily.service apt-daily-upgrade.service dpkg-db-backup.service
+
+chmod go-w \
+	$BUILDROOT/var/lib/dkms/mok.pub \
+	$BUILDROOT/var/lib/dkms/mok.key \
+	$BUILDROOT/etc/systemd/system/nvidia-tdx.service \
+	$BUILDROOT/etc/systemd/network/99-wired-dhcp.network
+
+
+mkdir -p $ARTIFACTDIR/io.mkosi.initrd || true
+cp $BUILDROOT/boot/initrd* $ARTIFACTDIR/io.mkosi.initrd/
+ls -lR $ARTIFACTDIR
+
+if grep -qP '\bautologin\b' <<<"$PROFILES" ; then
+  mkosi-chroot sed -i "/PermitRootLogin/s/^.*$/PermitRootLogin yes/" /etc/ssh/sshd_config
+fi
+
+sort $BUILDROOT/var/lib/dpkg/info/sgx-dcap-pccs.list > $BUILDROOT/var/lib/dpkg/info/sgx-dcap-pccs.list.new
+mv $BUILDROOT/var/lib/dpkg/info/sgx-dcap-pccs.list.new $BUILDROOT/var/lib/dpkg/info/sgx-dcap-pccs.list
+
+mkosi-chroot rm -r /boot
+mkosi-chroot mkdir /boot
+
+mkosi-chroot mkdir /data
+mkosi-chroot mkdir /spec
+#mkosi-chroot rm -r /.npm

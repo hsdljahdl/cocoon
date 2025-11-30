@@ -1,0 +1,151 @@
+#!/usr/bin/env bash
+# prepare-spec.sh  SRC_DIR SPEC_OUT
+# Creates a deterministic copy of SRC_DIR to SPEC_OUT with SHA-256 hash
+# Respects .gitignore files, excludes .git directories, includes runtime as-is
+set -euo pipefail
+LC_ALL=C; export LC_ALL
+
+# Error handler - shows line number and command that failed
+error_handler() {
+  local line_no=$1
+  local command=$(sed -n "${line_no}p" "$0" | sed 's/^[[:space:]]*//')
+  echo "ERR: Script failed at line $line_no: $command" >&2
+}
+trap 'error_handler $LINENO' ERR
+
+SRC="${1:-.}"
+SPEC="${2:?SPEC_OUT required}"
+NONHASHABLE="runtime"
+MAX_FILE_SIZE="10M"  # Reject files larger than 10MB
+DEBUG="${DEBUG:-0}"  # Set DEBUG=1 for verbose output
+
+# Validate and normalize paths
+[ ! -d "$SRC" ] && { echo "ERR: source directory '$SRC' does not exist" >&2; exit 1; }
+[ ! -r "$SRC" ] && { echo "ERR: source directory '$SRC' is not readable" >&2; exit 1; }
+
+SRC="$(cd "$SRC" && pwd -P)"
+rm -rf "$SPEC"
+mkdir -p "$SPEC"
+SPEC="$(cd "$SPEC" && pwd -P)"
+
+# Debug output
+if [ "$DEBUG" = "1" ]; then
+  echo "DEBUG: Processing source directory: $SRC" >&2
+  echo "DEBUG: Output directory: $SPEC" >&2
+  echo "DEBUG: Non-hashable directory: $NONHASHABLE" >&2
+fi
+
+# Check for nested .git directories (submodules)
+if find "$SRC" -mindepth 2 -name .git -type d -print -quit | grep -q .; then
+  echo "ERR: nested .git (submodule) detected under $SRC" >&2
+  exit 2
+fi
+
+# Check for large files (excluding NONHASHABLE directory)
+large_files=$(find "$SRC" -type f -size +$MAX_FILE_SIZE -not -path "*/$NONHASHABLE/*" -print -quit)
+[ -n "$large_files" ] && { echo "ERR: files larger than $MAX_FILE_SIZE detected" >&2; exit 2; }
+
+# Create ephemeral SHA-256 git repository for file selection (SRC)
+tmp_src="$(mktemp -d)"; trap 'rm -rf "$tmp_src"' EXIT
+git -c init.defaultObjectFormat=sha256 init -q "$tmp_src" >/dev/null 2>&1
+git --git-dir="$tmp_src/.git" config core.excludesFile /dev/null
+G_SRC="git --git-dir=$tmp_src/.git --work-tree=$SRC"
+
+# Store existing spec.tree for verification if it exists
+existing_spec_tree=""
+[ -f "$SRC/spec.tree" ] && existing_spec_tree=$(cat "$SRC/spec.tree") && [ "$DEBUG" = "1" ] && echo "DEBUG: Found existing spec.tree: $existing_spec_tree" >&2
+
+# Git will automatically find and use .gitignore files in the work tree (SRC)
+if [ "$DEBUG" = "1" ]; then
+  gitignore_count=$(find "$SRC" -name ".gitignore" -type f | wc -l)
+  if [ "$gitignore_count" -gt 0 ]; then
+    echo "DEBUG: Found $gitignore_count .gitignore files in source" >&2
+  fi
+fi
+
+# Stage all files respecting .gitignore rules
+$G_SRC add -A
+
+# Remove files that should not be part of the hash from the index
+$G_SRC rm -r -q --cached -- "$NONHASHABLE" 2>/dev/null || true
+$G_SRC ls-files --cached | grep -E '^spec\.(tree|meta)$' | xargs -r $G_SRC rm -q --cached -- 2>/dev/null || true
+$G_SRC ls-files --cached | grep -E '(^|/)\.gitignore$' | xargs -r $G_SRC rm -q --cached -- 2>/dev/null || true
+
+# Copy measured files to SPEC directory using git checkout (preserves git permissions)
+$G_SRC checkout-index --prefix="$SPEC/" -a
+
+# Copy NONHASHABLE directory as-is if it exists (not part of hash calculation)
+if [ -d "$SRC/$NONHASHABLE" ]; then
+  mkdir -p "$SPEC/$NONHASHABLE"
+  cp -R "$SRC/$NONHASHABLE/." "$SPEC/$NONHASHABLE/"
+  [ "$DEBUG" = "1" ] && echo "DEBUG: Copied $(find "$SPEC/$NONHASHABLE" -type f | wc -l) files from $NONHASHABLE directory" >&2
+elif [ "$DEBUG" = "1" ]; then
+  echo "DEBUG: No $NONHASHABLE directory found in source" >&2
+fi
+
+# Remove spec files from SPEC directory before hash calculation
+rm -f "$SPEC/spec.tree" "$SPEC/spec.meta"
+
+# Create ephemeral SHA-256 git repository for hash calculation (SPEC)
+tmp_spec="$(mktemp -d)"; trap 'rm -rf "$tmp_src" "$tmp_spec"' EXIT
+git -c init.defaultObjectFormat=sha256 init -q "$tmp_spec" >/dev/null 2>&1
+git --git-dir="$tmp_spec/.git" config core.excludesFile /dev/null
+git --git-dir="$tmp_spec/.git" config core.autocrlf false
+git --git-dir="$tmp_spec/.git" config core.safecrlf false
+G_SPEC="git --git-dir=$tmp_spec/.git --work-tree=$SPEC"
+
+# Stage files in SPEC for hash calculation (excluding runtime directory)
+$G_SPEC add -A
+$G_SPEC rm -r -q --cached -- "$NONHASHABLE" 2>/dev/null || true
+
+# Debug: show what files are being included in hash
+if [ "$DEBUG" = "1" ]; then
+  total_files=$($G_SPEC ls-files --cached | wc -l)
+  echo "DEBUG: Files included in hash calculation ($total_files total):" >&2
+  $G_SPEC ls-files --cached | head -20 >&2
+  [ "$total_files" -gt 20 ] && echo "DEBUG: (showing first 20 files only)" >&2
+fi
+
+# Validate that only regular files with standard permissions are included
+if ! $G_SPEC ls-files --stage | awk '$1 ~ /^100(644|755)$/ {next} {exit 1}'; then
+  echo "ERR: non-regular files or invalid permissions detected in measured set:" >&2
+  $G_SPEC ls-files --stage | awk '$1 !~ /^100(644|755)$/ {print "  " $4 " (mode: " $1 ")"}' >&2
+  echo "Only regular files with 644 or 755 permissions are allowed" >&2
+  exit 2
+fi
+
+# Compute canonical SHA-256 tree hash from SPEC
+HASH="$($G_SPEC write-tree)"
+
+# Verify existing spec.tree hash if it was present in source
+if [ -n "$existing_spec_tree" ]; then
+  if [ "$existing_spec_tree" != "$HASH" ]; then
+    echo "ERR: existing spec.tree hash mismatch:" >&2
+    echo "  Expected: $existing_spec_tree" >&2
+    echo "  Computed: $HASH" >&2
+    exit 4
+  fi
+  echo "Verified existing spec.tree hash matches: $HASH" >&2
+fi
+
+# Record the tree hash
+printf '%s\n' "$HASH" > "$SPEC/spec.tree"
+
+# List all files included in spec hash
+echo "=== Files included in spec hash ===" >&2
+$G_SPEC ls-files --cached >&2
+echo "===================================" >&2
+
+# Create metadata file
+cat > "$SPEC/spec.meta" <<EOF
+timestamp=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+source_path=$SRC
+tree_hash=$HASH
+script_version=1.1
+nonhashable_dir=$NONHASHABLE
+max_file_size=$MAX_FILE_SIZE
+EOF
+
+echo "Generated spec hash: $HASH" >&2
+[ "$DEBUG" = "1" ] && echo "DEBUG: Created spec directory with $(find "$SPEC" -type f | wc -l) total files" >&2
+echo "$HASH"

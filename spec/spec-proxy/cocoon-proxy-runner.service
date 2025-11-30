@@ -1,0 +1,13 @@
+[Unit]
+Description=TDX proxy-runner
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/proxy-runner -c /run/spec/proxy-config.json
+StandardOutput=journal+console
+StandardError=journal+console
+
+# Resource accounting (for health-monitor)
+CPUAccounting=yes
+MemoryAccounting=yes
+IOAccounting=yes

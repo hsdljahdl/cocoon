@@ -1,0 +1,5 @@
+#!/bin/bash
+
+set -e
+
+sed -i "s/^/console=tty0 console=ttyS0,115200n8 systemd.debug_shell=1 /" $OUTPUTDIR/image.cmdline

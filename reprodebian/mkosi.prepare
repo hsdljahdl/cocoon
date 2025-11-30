@@ -1,0 +1,54 @@
+#!/bin/bash
+set -e
+umask 022
+
+if [[ "$1" == "final" ]]; then
+  chmod 0755 "$BUILDROOT/var/lib/dkms"
+  chmod 0600 "$BUILDROOT/var/lib/dkms/mok.key"
+  chmod 0644 "$BUILDROOT/var/lib/dkms/mok.pub"
+
+  chmod 0644 "$BUILDROOT/etc/systemd/system/nvidia-tdx.service"
+  chmod 0755 "$BUILDROOT/etc/systemd/system/nvidia-persistenced.service.d"
+  chmod 0644 "$BUILDROOT/etc/systemd/system/nvidia-persistenced.service.d/10-cmdline.conf"
+
+  chmod 0755 "$BUILDROOT/etc/systemd/network"
+  chmod 0644 "$BUILDROOT/etc/systemd/network/99-wired-dhcp.network"
+
+  KERNEL_VERSION="$(ls $BUILDROOT/lib/modules/ -rt | tail -1)"
+  echo kernel: $KERNEL_VERSION
+  if ! grep -qP '\ball_modules\b' <<<"$PROFILES"; then
+    rsync -a --files-from="$SRCDIR/pkg-aux/modules.allowlist" "$BUILDROOT/lib/modules/$KERNEL_VERSION" "$BUILDROOT/lib/modules/$KERNEL_VERSION.pruned"
+    rm -r "$BUILDROOT/lib/modules/$KERNEL_VERSION"
+    mv "$BUILDROOT/lib/modules/$KERNEL_VERSION.pruned" "$BUILDROOT/lib/modules/$KERNEL_VERSION"
+    mkosi-chroot depmod "$KERNEL_VERSION"
+  fi
+
+  mkosi-chroot dkms install nvidia/580.95.05 -k $KERNEL_VERSION --force
+  mkosi-chroot rm -r /var/lib/dkms/nvidia/580.95.05/$KERNEL_VERSION/x86_64/log
+  cp "$SRCDIR/pkg-aux/pccs-package-lock.json" "$BUILDROOT/opt/intel/sgx-dcap-pccs/package-lock.json"
+
+  cp "$SRCDIR/pkg-aux/rules.v4" "$BUILDROOT/etc/iptables/rules.v4"
+  cp "$SRCDIR/pkg-aux/rules.v6" "$BUILDROOT/etc/iptables/rules.v6"
+  if grep -qP '\bautologin\b' <<<"$PROFILES" ; then
+    sed -i "s/^#autologin //" "$BUILDROOT/etc/iptables/rules.v4"
+    sed -i "s/^#autologin //" "$BUILDROOT/etc/iptables/rules.v6"
+  fi
+
+  tar -xzf "$SRCDIR/pkg-cache/nvtrust-2025.10.09.001.tar.gz" -C "$BUILDROOT/opt"
+  sed -i "/signxml/s/==3.2.0/>=3.2.0,<4.0.0/" "$BUILDROOT/opt/nvtrust-2025.10.09.001/guest_tools/attestation_sdk/pyproject.toml"
+  sed -i "/signxml/s/== 3.2.0/>=3.2.0,<4.0.0/" "$BUILDROOT/opt/nvtrust-2025.10.09.001/guest_tools/gpu_verifiers/local_gpu_verifier/pyproject.toml"
+
+  cp -rv "$SRCDIR/gpu_attest" "$BUILDROOT/opt/"
+  PIPENV_VENV_IN_PROJECT=1 mkosi-chroot --chdir /opt/gpu_attest pipenv sync --extra-pip-args "--only-binary=lxml"
+  PIPENV_VENV_IN_PROJECT=1 mkosi-chroot --chdir /opt/gpu_attest pipenv --clear
+  rm -r "$BUILDROOT/.local"
+  find "$BUILDROOT/opt/gpu_attest/.venv" -type f -name RECORD -delete
+fi
+
+if [[ "$1" == "build" ]]; then
+  rm "$SRCDIR/pkg-cache/sgx_linux_x64_sdk_2.26.100.0.bin.tmp" || true
+  cp "$SRCDIR/pkg-cache/sgx_linux_x64_sdk_2.26.100.0.bin" "$SRCDIR/pkg-cache/sgx_linux_x64_sdk_2.26.100.0.bin.tmp"
+  chmod +x $SRCDIR/pkg-cache/sgx_linux_x64_sdk_2.26.100.0.bin.tmp
+  sed -i '/tar zxf $SDKPKG -C $SDK_TEMP_FOLDER/s/tar zxf/tar --no-same-owner -zxf/' "$SRCDIR/pkg-cache/sgx_linux_x64_sdk_2.26.100.0.bin.tmp"  # hack around tar changing owner in a chroot as uid=0
+  (echo n; echo /opt/intel) | mkosi-chroot "$CHROOT_SRCDIR/pkg-cache/sgx_linux_x64_sdk_2.26.100.0.bin.tmp"
+fi

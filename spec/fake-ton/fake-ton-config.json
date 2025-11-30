@@ -1,0 +1,22 @@
+{
+  "proxy_hashes" : [ "ProxyProxyProxyProxyProxyProxyProxyProxyPro=" ],
+  "worker_hashes" : [ "WorkerWorkerWorkerWorkerWorkerWorkerWorkerU=" ],
+  "model_names" : [ "$MODEL_NAME" ],
+  "registered_proxies" : [
+    {
+      "seqno" : 1,
+      "address" : "$EXTERNAL_IP:$EXTERNAL_WORKER_PORT $EXTERNAL_IP:$EXTERNAL_CLIENT_PORT",
+      "proxy_hash" : "ProxyProxyProxyProxyProxyProxyProxyProxyPro="
+    }
+  ],
+  "price_per_token" : 2,
+  "worker_fee_per_token" : 1,
+  "last_proxy_seqno" : 1,
+  "version" : 3,
+  "params_version" : 1,
+  "proxy_sc_code" : "$PROXY_SC_CODE",
+  "worker_sc_code" : "$WORKER_SC_CODE",
+  "client_sc_code" : "$CLIENT_SC_CODE",
+  "root_owner_address" : "0QBgPMq7ye2WRcudRHK_-yjHwMXjeN-UCzAuoo06TR6hmgHV"
+}
+

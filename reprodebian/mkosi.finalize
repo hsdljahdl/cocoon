@@ -1,0 +1,6 @@
+#!/bin/bash
+umask 022
+set -e
+
+chmod -R go-w "$BUILDROOT/boot"
+chmod 0755 "$BUILDROOT"

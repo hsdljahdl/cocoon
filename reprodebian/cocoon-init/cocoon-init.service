@@ -1,0 +1,15 @@
+[Unit]
+Description=cocoon environment init
+Wants=mnt-spec.mount time-sync.target network-online.target
+After=mnt-spec.mount time-sync.target network-online.target
+
+[Service]
+Type=oneshot
+Restart=no
+RemainAfterExit=yes
+ExecStart=/usr/bin/cocoon-init
+StandardOutput=journal+console
+StandardError=journal+console
+
+[Install]
+WantedBy=cocoon-ready.target

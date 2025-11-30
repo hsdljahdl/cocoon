@@ -1,0 +1,11 @@
+/mkosi.cache
+/mkosi.tools
+/mkosi.local.conf
+/mkosi.sandbox
+/venv
+/image-*
+/image.*
+/image
+/OVMF.fd
+/models
+/mkosi.tools.manifest

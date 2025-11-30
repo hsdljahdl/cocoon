@@ -1,0 +1,24 @@
+enclave {
+    include "sgx_report.h"
+    include "sgx_report2.h"
+    include "sgx_tcrypto.h"
+
+    trusted {
+        public sgx_status_t ecall_gen_key(
+          [in] const sgx_target_info_t *sgx_target_info,
+          [in] const sgx_report2_t *tdx_report,
+          [in, size=public_key_size] const char *public_key,
+          size_t public_key_size,
+          [in, size=key_name_size] const char *key_name,
+          size_t key_name_size,
+          [out, size=encrypted_secret_buf_size] char *encrypted_secret_buf,
+          size_t encrypted_secret_buf_size,
+          [out] size_t *encrypted_secret_size,
+          [out] sgx_report_t *sgx_report
+        );
+    };
+
+    untrusted {
+        void ocall_print([in, string] const char* str);
+    };
+};

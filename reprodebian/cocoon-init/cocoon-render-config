@@ -1,0 +1,28 @@
+#!/bin/bash
+# cocoon-render-config - Render config for production (TDX VM)
+set -euo pipefail
+
+[[ $# -ne 1 ]] && { echo "Usage: $0 <config-file>" >&2; exit 1; }
+
+config_file="$1"
+template="/spec/$config_file"
+output="/run/spec/$config_file"
+
+[[ ! -f "$template" ]] && { echo "ERROR: Template not found: $template" >&2; exit 1; }
+
+mkdir -p /run/spec
+
+# Apply system.vars (no validate), then runtime.vars (with validate)
+"${COCOON_SUBST:-cocoon-subst}" --no-validate "$template" /run/system.vars - | \
+    "${COCOON_SUBST:-cocoon-subst}" - /spec/runtime/runtime.vars "$output"
+
+chmod 444 "$output"
+
+echo "Rendered: $config_file -> $output"
+
+# Only print config contents in debug mode
+if grep -Po '\bcocoon_debug\b' /proc/cmdline >/dev/null 2>&1; then
+    echo "=== Generated config ==="
+    cat "$output"
+    echo "=== End config ==="
+fi

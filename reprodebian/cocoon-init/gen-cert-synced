@@ -1,0 +1,15 @@
+#!/bin/bash
+# gen-cert-synced - Generate certificate with TON-synchronized time
+set -euo pipefail
+
+echo "gen-cert-synced: Getting synchronized time..." >&2
+
+# Get current time (synced with TON if not in fake-ton mode)
+CURRENT_TIME=$(cocoon-sync-time)
+
+echo "gen-cert-synced: Using timestamp $CURRENT_TIME for certificate generation" >&2
+echo "gen-cert-synced: Calling gen-cert --current-time $CURRENT_TIME $@" >&2
+
+# Generate certificate with the synchronized time
+exec gen-cert --current-time "$CURRENT_TIME" "$@"
+

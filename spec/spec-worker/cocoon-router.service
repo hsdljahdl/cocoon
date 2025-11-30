@@ -1,0 +1,14 @@
+[Unit]
+Description=TDX router
+Wants=vllm.service
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/router -S 8116@tdx --serialize-info -C /etc/tdx/tdx
+StandardOutput=journal+console
+StandardError=journal+console
+
+# Resource accounting (for health-monitor)
+CPUAccounting=yes
+MemoryAccounting=yes
+IOAccounting=yes

@@ -1,0 +1,23 @@
+#!/bin/bash
+# cocoon-render-ton-config-local - Merge liteservers for local testing
+set -euo pipefail
+
+[[ $# -ne 1 ]] && { echo "Usage: $0 <spec-dir>" >&2; exit 1; }
+
+spec_dir="$1"
+template="$spec_dir/global.config.json"
+liteservers="$spec_dir/runtime/global.config.json"
+RUN_DIR="${COCOON_RUN_DIR:-/tmp/run}"
+output="$RUN_DIR/global.config.json"
+
+[[ ! -f "$template" ]] && { echo "ERROR: Template not found: $template" >&2; exit 1; }
+[[ ! -f "$liteservers" ]] && { echo "ERROR: Liteservers config not found: $liteservers" >&2; exit 1; }
+
+mkdir -p "$RUN_DIR"
+
+jq --slurpfile liteservers "$liteservers" \
+  '.liteservers = $liteservers[0].liteservers' \
+  "$template" > "$output"
+
+echo "Rendered: global.config.json -> $output"
+

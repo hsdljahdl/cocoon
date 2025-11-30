@@ -1,0 +1,94 @@
+#pragma once
+#include "cocoon/tdx.h"
+#include "td/utils/JsonBuilder.h"
+#include "td/utils/Status.h"
+#include <map>
+#include <optional>
+#include <string>
+#include <vector>
+
+namespace cocoon {
+
+/**
+ * @brief Configuration for a single policy
+ */
+struct PolicyConfig {
+  std::string name;
+  std::string type;  // "any", "fake_tdx", "tdx"
+  std::string description;
+
+  // TDX policy configuration (includes image hash, allowed measurements, etc.)
+  tdx::PolicyConfig tdx_config;
+
+  // Legacy parameters for backward compatibility
+  std::map<std::string, std::string> parameters;  // Additional policy-specific parameters
+};
+
+/**
+ * @brief Configuration for a single port
+ */
+struct PortConfig {
+  int port;
+  std::string type;  // "socks5", "forward", or "reverse"
+  std::string policy_name;
+  std::optional<bool> serialize_info;  // If not set, uses global default
+
+  // For forward/reverse proxy
+  std::string destination_host;
+  int destination_port = 0;
+
+  // For SOCKS5
+  bool allow_policy_from_username = false;  // If true, SOCKS5 username can override policy
+
+  // Proof of work (always enabled)
+  td::uint8 pow_difficulty = 20;      // Number of leading zero bits required (for reverse proxy)
+  td::int32 max_pow_difficulty = 28;  // Max PoW difficulty client will solve (for forward/socks5 proxy)
+};
+
+td::StringBuilder &operator<<(td::StringBuilder &sb, const PortConfig &config);
+
+/**
+ * @brief Main proxy configuration
+ */
+struct ProxyConfig {
+  std::string cert_base_name;
+  std::vector<PolicyConfig> policies;
+  std::vector<PortConfig> ports;
+  int threads = 0;
+};
+
+/**
+ * @brief Parse configuration from JSON value
+ * @param json_value Parsed JSON value
+ * @return Parsed configuration or error
+ */
+td::Result<ProxyConfig> parse_config_from_json(td::JsonValue &json_value);
+
+/**
+ * @brief Parse configuration from JSON file
+ * @param filename Path to JSON configuration file
+ * @return Parsed configuration or error
+ */
+td::Result<ProxyConfig> parse_config_file(const std::string &filename);
+
+/**
+ * @brief Generate example configuration as JSON string
+ * @return JSON string with example configuration
+ */
+std::string generate_example_config();
+
+/**
+ * @brief Validate port configuration
+ * @param config Port configuration to validate
+ * @return Status indicating validation result
+ */
+td::Status validate_port_config(const PortConfig &config);
+
+/**
+ * @brief Validate proxy configuration
+ * @param config Proxy configuration to validate
+ * @return Status indicating validation result
+ */
+td::Status validate_proxy_config(const ProxyConfig &config);
+
+}  // namespace cocoon

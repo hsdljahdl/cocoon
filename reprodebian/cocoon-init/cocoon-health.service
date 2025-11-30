@@ -1,0 +1,14 @@
+[Unit]
+Description=Cocoon Health Monitor (vsock)
+After=mnt-spec.mount network.target
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/health-monitor --port 9999
+Restart=always
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target
+

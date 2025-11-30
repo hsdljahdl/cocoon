@@ -1,0 +1,11 @@
+[Unit]
+Description=/mnt/spec
+After=systemd-udev-settle.service
+Requires=systemd-udev-settle.service
+Before=local-fs.target
+
+[Mount]
+What=spec
+Where=/mnt/spec
+Type=9p
+Options=trans=virtio,noexec,nosuid,nodev,ro,nosymfollow

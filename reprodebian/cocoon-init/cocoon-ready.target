@@ -1,0 +1,7 @@
+[Unit]
+Description=cocoon environment ready
+Requires=nvidia-tdx.service cocoon-init.service time-sync.target network-online.target
+After=nvidia-tdx.service cocoon-init.service network-online.target
+
+[Install]
+WantedBy=multi-user.target

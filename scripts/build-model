@@ -1,0 +1,158 @@
+#!/bin/bash
+# build-model - Download and build a model from HF
+#
+# Logic:
+#   1. Skip tar creation if .tar exists
+#   2. Skip veritysetup if .hash exists
+#   3. Verify hash is it is passed in model name
+#   4. Output: model@commit:hash /path/to/tar
+#
+set -euo pipefail
+
+REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+
+mkdir -p "$REPO_ROOT/reprodebian"
+cd "$REPO_ROOT/reprodebian"
+
+if command -v gtar >/dev/null 2>&1; then
+    TAR_CMD=gtar
+elif tar --version 2>&1 | grep -q "GNU tar"; then
+    TAR_CMD=tar
+else
+    echo "Error: GNU tar required. Install with: brew install gnu-tar" >&2
+    exit 1
+fi
+
+MODEL_SPEC="${1:-google/gemma-3-270m}"
+
+# Parse MODEL_SPEC format: <model_name>[@<commit>[:<hash>]]
+if [[ "$MODEL_SPEC" =~ ^([^@]+)(@([^:]+)(:(.+))?)?$ ]]; then
+    MODEL="${BASH_REMATCH[1]}"
+    COMMIT="${BASH_REMATCH[3]}"
+    HASH="${BASH_REMATCH[5]}"
+else
+    echo "Error: Invalid model specification format" >&2
+    echo "Expected: <model_name>[@<commit>[:<hash>]]" >&2
+    exit 1
+fi
+
+echo "=== Building COCOON model package '$MODEL_SPEC' ===" >&2
+
+MODEL_PATH="$(LC_ALL=C tr -d '\n' <<<"$MODEL" | LC_ALL=C tr -c '[:alnum:]' '_')"
+
+# Per-model lock to prevent concurrent builds of the same model
+mkdir -p "$REPO_ROOT/images"
+exec {lock_fd}>"$REPO_ROOT/images/.build-${MODEL_PATH}.lock"
+
+# Try non-blocking first, print message if waiting
+if ! flock -n "$lock_fd"; then
+    echo "Another process is building ${MODEL}, waiting..." >&2
+    flock "$lock_fd" || {
+        echo "ERROR: Failed to acquire lock for model ${MODEL_PATH}" >&2
+        exit 1
+    }
+fi
+
+if [[ ! -d venv ]]; then
+    echo "Creating Python venv..." >&2
+    python3 -m venv venv || {
+        echo "ERROR: Failed to create venv" >&2
+        echo "Python version: $(python3 --version)" >&2
+        exit 1
+    }
+fi
+
+echo "Activating venv..." >&2
+source venv/bin/activate || {
+    echo "ERROR: Failed to activate venv" >&2
+    echo "venv/bin/activate exists: $(ls -la venv/bin/activate 2>&1)" >&2
+    exit 1
+}
+
+echo "Installing huggingface_hub..." >&2
+pip install huggingface_hub==1.0.1 >/dev/null || {
+    echo "ERROR: Failed to install huggingface_hub" >&2
+    exit 1
+}
+
+MODEL_DIR="models/$MODEL_PATH"
+mkdir -p "$MODEL_DIR"
+
+if [[ -z "$COMMIT" ]]; then
+    COMMIT=$(python3 - "$MODEL" <<-'PY'
+	from huggingface_hub import HfApi
+	import sys
+	api = HfApi()
+	info = api.repo_info(sys.argv[1], repo_type='model')
+	print(info.sha, end="")
+	PY
+    ) || { echo "Failed to determine commit via HuggingFace API" >&2; exit 1; }
+fi
+
+OUTPUT_DIR="$REPO_ROOT/images"
+mkdir -p "$OUTPUT_DIR"
+OUTPUT_TAR="$OUTPUT_DIR/$MODEL_PATH.tar"
+
+# Check if tar already exists - skip download and tar creation
+if [[ -f "$OUTPUT_TAR" ]]; then
+    echo "=== Tar file already exists, skipping download and tar creation ===" >&2
+else
+    # Delete old hash and verity files before creating new tar
+    rm -f "${OUTPUT_TAR}.hash" "${OUTPUT_TAR}.verity"
+    
+    echo "Downloading model '$MODEL' at revision '$COMMIT'..." >&2
+    hf download "$MODEL" --revision "$COMMIT" --local-dir "$MODEL_DIR" >&2
+
+    rm -rf "$MODEL_DIR/.cache" 2>/dev/null || true
+
+    TMP_TAR="${OUTPUT_TAR}.tmp"
+
+    LC_ALL=C "$TAR_CMD" -cf "$TMP_TAR" -C "$MODEL_DIR" . \
+        --sort=name --format=posix \
+        --pax-option='exthdr.name=%d/PaxHeaders/%f' \
+        --pax-option='delete=atime,delete=ctime' \
+        --clamp-mtime --mtime="@0" \
+        --numeric-owner --owner=0 --group=0 \
+        --mode='go+u,go-w'
+
+    if stat --version 2>&1 | grep -q "GNU"; then
+        FILE_SIZE=$(stat --format=%s "$TMP_TAR")
+    else
+        FILE_SIZE=$(stat -f%z "$TMP_TAR")
+    fi
+    dd if=/dev/zero bs=1 count="$((4096 - FILE_SIZE % 4096))" >>"$TMP_TAR" 2>/dev/null
+
+    mv "$TMP_TAR" "$OUTPUT_TAR"
+fi
+
+# Generate verity if .hash file doesn't exist
+if [[ -f "${OUTPUT_TAR}.hash" ]]; then
+    echo "=== Using existing .hash file ===" >&2
+    ACTUAL_HASH=$(cat "${OUTPUT_TAR}.hash")
+else
+    echo "=== Generating verity hash ===" >&2
+    # Generate verity atomically (for concurrent builds)
+    TMP_VERITY=$(mktemp "${OUTPUT_TAR}.verity.XXXXXX")
+    TMP_HASH=$(mktemp "${OUTPUT_TAR}.hash.XXXXXX")
+
+    veritysetup format --uuid=645ac31f-7610-42e1-8434-9d733699eac0 --salt=00010203040506070809101a1b1c1d1e1f "$OUTPUT_TAR" "$TMP_VERITY" --root-hash-file="$TMP_HASH" >&2
+
+    ACTUAL_HASH=$(cat "$TMP_HASH")
+
+    # Atomically move to final location
+    mv "$TMP_VERITY" "${OUTPUT_TAR}.verity"
+    mv "$TMP_HASH" "${OUTPUT_TAR}.hash"
+fi
+
+# Fail only if user provided hash and it mismatches
+if [[ -n "$HASH" && "$HASH" != "$ACTUAL_HASH" ]]; then
+    echo "Hash mismatch! Expected: $HASH, Got: $ACTUAL_HASH" >&2
+    exit 1
+fi
+
+FULL_MODEL_SPEC="${MODEL}@${COMMIT}:${ACTUAL_HASH}"
+
+echo "=== Build complete ===" >&2
+ls -lh "$OUTPUT_TAR" "${OUTPUT_TAR}.verity" >&2
+echo "${FULL_MODEL_SPEC} ${OUTPUT_TAR}" >&2
+echo "${FULL_MODEL_SPEC} ${OUTPUT_TAR}"

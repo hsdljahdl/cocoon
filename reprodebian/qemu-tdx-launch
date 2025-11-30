@@ -1,0 +1,106 @@
+#!/bin/bash
+
+function usage {
+  echo "Usage: $0 [-d|--debug] [--persistent=persistent.img] [--gpu=0000:3a:00.00] [--ssh-port=10023] [--https-port=18080] [--spec=spec] [--vsock-cid=4] [--tcp=<port>]..."
+}
+
+debug=false
+persistent=persistent.img
+gpu=0000:3a:00.00
+ssh_port=10023
+https_port=18080
+vsock_cid=4
+spec=
+tcp_ports=()
+
+machine="q35,kernel-irqchip=split,confidential-guest-support=tdx,memory-backend=mem0"
+tdx_object=('-object' '{"qom-type":"tdx-guest","id":"tdx","quote-generation-socket":{"type":"vsock","cid":"2","port":"4050"}}')
+
+while [[ "$#" -gt 0 ]]; do
+	echo $1
+  case "$1" in
+    -d|--debug)
+      debug=true
+      ;;
+    --persistent=*)
+      persistent="${1##--persistent=}"
+      ;;
+    --vsock-cid=*)
+      vsock_cid="${1##--vsock-cid=}"
+      ;;
+    --gpu=*)
+      gpu="${1##--gpu=}"
+      ;;
+    --ssh-port=*)
+      ssh_port="${1##--ssh-port=}"
+      ;;
+    --https-port=*)
+      https_port="${1##--https-port=}"
+      ;;
+    --spec=*)
+      spec="${1##--spec=}"
+      ;;
+    --tcp=*)
+      tcp_ports+=("${1##--tcp=}")
+      ;;
+    --no-tdx)
+      machine="q35,kernel-irqchip=split,memory-backend=mem0"
+      tdx_object=()
+      ;;
+    -h|--help)
+      usage
+      exit 1
+      ;;
+    *)
+      echo "Unknown option: $1"
+      usage
+      exit 1
+      ;;
+  esac
+  shift # Consume the option/flag itself
+done
+
+echo "opts debug=$debug
+persistent=$persistent
+gpu=$gpu
+ssh_port=$ssh_port
+https_port=$https_port
+spec=$spec
+object=$tdx_object
+"
+cmdline="$(cat image.cmdline)"
+if [[ "$debug" = "true" ]]; then
+  cmdline="$cmdline cocoon_debug"
+fi
+
+gpu_cmd=""
+if [[ -n "$gpu" ]]; then
+  gpu_cmd="-device vfio-pci,host=$gpu,bus=pci.0,iommufd=iommufd0"
+  cmdline="$cmdline cocoon_gpu"
+else
+  cmdline="$cmdline modprobe.blacklist=nvidia"
+fi
+
+tcp_hostfwd=""
+for port in "${tcp_ports[@]}"; do
+  tcp_hostfwd="$tcp_hostfwd,hostfwd=tcp::$port-:$port"
+done
+
+exec qemu-system-x86_64 -machine "$machine" \
+  -bios /usr/share/ovmf/OVMF.fd \
+  -accel kvm -cpu host \
+  -smp 32 \
+  ${tdx_object[@]} \
+  -object memory-backend-ram,id=mem0,size=100G \
+  -device vhost-vsock-pci,guest-cid=$vsock_cid \
+  -object iommufd,id=iommufd0 \
+  -device pcie-root-port,id=pci.0,bus=pcie.0 \
+  -drive cache=writeback,file=image.img,readonly=on,id=drive1,if=none,index=1,werror=report \
+  -device virtio-blk-pci,bootindex=1,drive=drive1,serial=root \
+  -drive cache=writeback,file=$persistent,format=raw,id=drive2,if=none,index=2,werror=report \
+  -device virtio-blk-pci,bootindex=2,drive=drive2,serial=persistent \
+  -kernel image.vmlinuz -initrd image.initrd \
+  -append "$cmdline" \
+  -virtfs local,path=$spec,mount_tag=spec,security_model=mapped,readonly=on \
+  -net nic,netdev=user.0,model=virtio -netdev user,id=user.0,hostfwd=tcp::$ssh_port-:22,hostfwd=tcp::$https_port-:8080$tcp_hostfwd \
+  -nographic $gpu_cmd

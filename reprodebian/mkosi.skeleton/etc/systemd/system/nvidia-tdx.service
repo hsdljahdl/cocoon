@@ -1,0 +1,14 @@
+[Unit]
+Description=NVIDIA Confidential Compute
+Wants=nvidia-persistenced.service network-online.target
+After=nvidia-persistenced.service network-online.target
+ConditionKernelCommandLine=cocoon_gpu
+
+[Service]
+Type=oneshot
+RemainAfterExit=true
+ExecStart=/usr/bin/nvidia-smi conf-compute -srs 1
+ExecStart=/opt/gpu_attest/tdx.sh
+
+[Install]
+WantedBy=multi-user.target
