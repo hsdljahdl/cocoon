@@ -24,7 +24,7 @@ You may also find the `./scripts/setup-gpu-vfio` script helpful to prepare your 
    ```bash
    wget https://ci.cocoon.org/cocoon-worker-release-latest.tar.xz 
    tar xvf cocoon-worker-release-latest.tar.xz 
-   cd cocoon-worker-release-latest
+   # cd release-<commit-hash>
    ```
 
 2. Start seal-server (required for production):
