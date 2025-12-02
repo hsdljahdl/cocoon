@@ -77,6 +77,7 @@ class ClientRunningRequest : public td::actor::Actor {
   double started_at_unix_ = td::Clocks::system();
   td::int64 payload_parts_{0};
   td::int64 payload_bytes_{0};
+  bool keep_alive_{false};
 };
 
 }  // namespace cocoon

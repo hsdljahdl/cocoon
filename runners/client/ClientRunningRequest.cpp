@@ -17,6 +17,9 @@ namespace cocoon {
 
 void ClientRunningRequest::start_up() {
   LOG(INFO) << "client request " << request_id_.to_hex() << ": starting";
+
+  keep_alive_ = in_request_->keep_alive();
+
   stats()->requests_received++;
   auto P = td::PromiseCreator::lambda([self_id = actor_id(this)](td::Result<td::BufferSlice> R) mutable {
     if (R.is_ok()) {
@@ -137,13 +140,14 @@ void ClientRunningRequest::process_answer(ton::tl_object_ptr<cocoon_api::client_
     ton::http::HttpHeader h{x->name_, x->value_};
     res->add_header(std::move(h));
   }
-  
+
   // Add client timing headers using Unix timestamps
-  res->add_header(ton::http::HttpHeader{
-      "X-Cocoon-Client-Start", PSTRING() << td::StringBuilder::FixedDouble(started_at_unix_, 6)});
-  res->add_header(ton::http::HttpHeader{
-      "X-Cocoon-Client-End", PSTRING() << td::StringBuilder::FixedDouble(td::Clocks::system(), 6)});
-  
+  res->add_header(
+      ton::http::HttpHeader{"X-Cocoon-Client-Start", PSTRING() << td::StringBuilder::FixedDouble(started_at_unix_, 6)});
+  res->add_header(ton::http::HttpHeader{"X-Cocoon-Client-End",
+                                        PSTRING() << td::StringBuilder::FixedDouble(td::Clocks::system(), 6)});
+
+  res->set_keep_alive(keep_alive_);
   res->complete_parse_header().ensure();
 
   out_payload_ = res->create_empty_payload().move_as_ok();
