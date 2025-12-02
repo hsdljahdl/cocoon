@@ -987,7 +987,7 @@ void ProxyRunner::alarm() {
   iterate_check_map(old_proxy_contracts_);
 
   if (sc_ && !running_withdraw_ && sc_->ready_for_withdraw() >= min_withdraw_amount()) {
-    running_withdraw_ = true;
+    run_withdraw();
   }
 }
 
