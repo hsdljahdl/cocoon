@@ -518,7 +518,6 @@ std::string WorkerRunner::http_generate_main() {
   td::StringBuilder sb;
   sb << "<!DOCTYPE html>\n";
   sb << "<html><body>\n";
-  sb << "</table>\n";
   {
     sb << "<h1>STATUS</h1>\n";
     sb << "<table>\n";
