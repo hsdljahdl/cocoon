@@ -1,16 +1,15 @@
-#!/usr/bin/env python3
+#!/usr/bin/env -S uv run
 """
 Simple translation script.
 
 Usage:
-    echo "Hello world" | python simple_translate.py "Russian (ru)"
-    python simple_translate.py "German (de)" --query "Hello world"
-    python simple_translate.py "Chinese (zh)" --query-file input.txt
+    ./simple_translate.py "German (de)" --query "Hello world"
+    echo "Hello" | ./simple_translate.py "Russian (ru)"
 """
 
 import sys
 import argparse
-from translate import translate, add_translate_args, config_from_args
+from mt import translate, add_translate_args, config_from_args
 
 
 def main():

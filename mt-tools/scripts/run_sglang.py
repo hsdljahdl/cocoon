@@ -1,11 +1,17 @@
-#!/usr/bin/env python3
+#!/usr/bin/env -S uv run
+# /// script
+# requires-python = ">=3.10"
+# dependencies = [
+#     "huggingface-hub",
+# ]
+# ///
 """
 Start sglang server in Docker with automatic cleanup.
 
 Usage:
-    python run_sglang.py                           # Default: tencent/Hunyuan-MT-Chimera-7B
-    python run_sglang.py --model tencent/Hunyuan-MT-7B
-    python run_sglang.py --port 8001 --tp 2
+    uv run run_sglang.py                           # Default: tencent/Hunyuan-MT-Chimera-7B
+    uv run run_sglang.py --model tencent/Hunyuan-MT-7B
+    uv run run_sglang.py --port 8001 --tp 2
 """
 
 import argparse

@@ -1,15 +1,13 @@
-#!/usr/bin/env python3
+#!/usr/bin/env -S uv run
 """
 Translation Quality Evaluation Script
 
 Downloads WMT24++ benchmark data and evaluates translation quality using COMET metric.
-Uses translate.py for translation.
 
 Dataset: https://huggingface.co/datasets/google/wmt24pp
 
 Usage:
-    pip install unbabel-comet datasets rich
-    python quality_eval.py --configs azure.conf local.conf --pairs en-ru,en-zh
+    ./quality_eval.py --configs azure.conf local.conf --pairs en-ru,en-zh
 """
 
 import argparse
@@ -74,7 +72,7 @@ def has_gpu() -> bool:
 # Dataset download
 from datasets import load_dataset
 
-from translate import translate, TranslateConfig, config_from_args
+from mt import translate, TranslateConfig, config_from_args
 
 # Translation cache using DuckDB
 import duckdb

@@ -1,4 +1,7 @@
-#!/usr/bin/env python3
+#!/usr/bin/env -S uv run
+"""
+Translation benchmark - measures translation speed and latency.
+"""
 
 import argparse
 import csv
@@ -19,12 +22,12 @@ from functools import partial
 from typing import List, Optional, Tuple
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
-from translate import (
+from mt import (
     translate,
     add_translate_args,
     config_from_args,
     TimingInfo,
-    TranslateConfig
+    TranslateConfig,
 )
 
 
