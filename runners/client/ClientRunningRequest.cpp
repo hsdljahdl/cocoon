@@ -6,6 +6,7 @@
 #include "nlohmann/detail/conversions/to_json.hpp"
 #include "td/actor/actor.h"
 #include "td/utils/StringBuilder.h"
+#include "td/utils/Time.h"
 #include "td/utils/buffer.h"
 #include "runners/helpers/HttpSender.hpp"
 
@@ -34,7 +35,9 @@ void ClientRunningRequest::start_up() {
     }
   });
 
-  td::actor::create_actor<HttpPayloadReceiver>("payloadreceiver", std::move(in_payload_), std::move(P)).release();
+  td::actor::create_actor<HttpPayloadReceiver>("payloadreceiver", std::move(in_payload_), std::move(P),
+                                               td::Timestamp::in(60.0))
+      .release();
 }
 
 void ClientRunningRequest::on_payload_downloaded(td::BufferSlice payload) {

@@ -2,6 +2,7 @@
 
 #include "td/actor/ActorId.h"
 #include "td/actor/actor.h"
+#include "td/utils/Time.h"
 #include "td/utils/buffer.h"
 #include "ton/http/http.h"
 #include <memory>
@@ -10,8 +11,9 @@ namespace cocoon {
 
 class HttpPayloadReceiver : public td::actor::Actor {
  public:
-  HttpPayloadReceiver(std::shared_ptr<ton::http::HttpPayload> payload, td::Promise<td::BufferSlice> promise)
-      : payload_(std::move(payload)), promise_(std::move(promise)) {
+  HttpPayloadReceiver(std::shared_ptr<ton::http::HttpPayload> payload, td::Promise<td::BufferSlice> promise,
+                      td::Timestamp timeout)
+      : payload_(std::move(payload)), promise_(std::move(promise)), timeout_(timeout) {
   }
 
   void start_up() override;
@@ -60,6 +62,7 @@ class HttpPayloadReceiver : public td::actor::Actor {
   std::vector<td::BufferSlice> answer_;
 
   td::Promise<td::BufferSlice> promise_;
+  td::Timestamp timeout_;
 };
 
 class HttpPayloadCbReceiver : public td::actor::Actor {
@@ -70,8 +73,9 @@ class HttpPayloadCbReceiver : public td::actor::Actor {
     virtual void data_chunk(td::BufferSlice buffer, bool is_finished) = 0;
     virtual void error(td::Status error) = 0;
   };
-  HttpPayloadCbReceiver(std::shared_ptr<ton::http::HttpPayload> payload, std::unique_ptr<Cb> callback)
-      : payload_(std::move(payload)), callback_(std::move(callback)) {
+  HttpPayloadCbReceiver(std::shared_ptr<ton::http::HttpPayload> payload, std::unique_ptr<Cb> callback,
+                        td::Timestamp timeout)
+      : payload_(std::move(payload)), callback_(std::move(callback)), timeout_(timeout) {
   }
 
   void start_up() override;
@@ -103,8 +107,8 @@ class HttpPayloadCbReceiver : public td::actor::Actor {
   }
 
   std::shared_ptr<ton::http::HttpPayload> payload_;
-
   std::unique_ptr<Cb> callback_;
+  td::Timestamp timeout_;
 };
 
 }  // namespace cocoon

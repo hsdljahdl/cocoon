@@ -22,7 +22,7 @@ void HttpPayloadReceiver::start_up() {
 
   payload_->add_callback(std::make_unique<Cb>(actor_id(this), ton::http::HttpRequest::low_watermark()));
 
-  alarm_timestamp() = td::Timestamp::in(60.0);
+  alarm_timestamp() = timeout_;
 
   try_answer_query(false);
 }
@@ -47,7 +47,7 @@ void HttpPayloadCbReceiver::start_up() {
 
   payload_->add_callback(std::make_unique<Cb>(actor_id(this), ton::http::HttpRequest::low_watermark()));
 
-  alarm_timestamp() = td::Timestamp::in(60.0);
+  alarm_timestamp() = timeout_;
 
   try_answer_query(false);
 }

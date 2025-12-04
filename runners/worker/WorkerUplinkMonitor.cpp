@@ -41,7 +41,8 @@ void WorkerUplinkMonitor::got_http_answer(
         } else {
           td::actor::send_closure(self_id, &WorkerUplinkMonitor::requests_completed, true);
         }
-      })
+      },
+      td::Timestamp::in(30.0))
       .release();
 }
 

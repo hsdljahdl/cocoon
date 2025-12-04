@@ -11,6 +11,7 @@
 #include "td/actor/actor.h"
 #include "td/utils/Random.h"
 #include "td/utils/JsonBuilder.h"
+#include "td/utils/Time.h"
 #include "td/utils/buffer.h"
 #include "td/utils/port/Clocks.h"
 #include "tl/TlObject.h"
@@ -150,7 +151,9 @@ void WorkerRunningRequest::process_request_response(
 
   auto cb = std::make_unique<Cb>(actor_id(this));
 
-  td::actor::create_actor<HttpPayloadCbReceiver>("payloadreceiver", std::move(payload), std::move(cb)).release();
+  td::actor::create_actor<HttpPayloadCbReceiver>("payloadreceiver", std::move(payload), std::move(cb),
+                                                 td::Timestamp::in(timeout_ * 0.95))
+      .release();
 }
 
 void WorkerRunningRequest::send_error(td::Status error) {

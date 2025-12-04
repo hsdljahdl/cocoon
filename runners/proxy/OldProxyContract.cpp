@@ -157,6 +157,7 @@ void OldProxyContract::store_stats(td::StringBuilder &sb) {
   sb << "<tr><td>sc address</td><td>" << proxy_runner_->address_link(sc_addr_) << "</td></tr>\n";
   sb << "<tr><td>state</td><td>" << state() << "</td></tr>\n";
   sb << "<tr><td>running message</td><td>" << (running_message() ? "YES" : "NO") << "</td></tr>\n";
+  sb << "<tr><td>close at</td><td>" << close_at_ << "</td></tr>\n";
   sb << "</table>\n";
 }
 
@@ -165,6 +166,7 @@ void OldProxyContract::store_stats(SimpleJsonSerializer &jb) {
   jb.add_element("sc_address", sc_addr_.rserialize(true));
   jb.add_element("state", state());
   jb.add_element("running_message", running_message());
+  jb.add_element("close_at", close_at_);
   jb.stop_object();
 }
 
