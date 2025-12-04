@@ -38,6 +38,7 @@ func stream(w http.ResponseWriter, r *http.Request) {
 
 func main() {
 	http.HandleFunc("/v1/chat/completions", stream)
+	http.HandleFunc("/v1/completions", stream)
 	http.HandleFunc("/v1/models", stream)
 	fmt.Println("Server listening on :8000")
 	http.ListenAndServe(":8000", nil)
