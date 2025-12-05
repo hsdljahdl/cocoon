@@ -123,7 +123,7 @@ void ClientRunner::run_get_models_request(
               jb.add_element("coefficient", w->coefficient_);
               jb.add_element("running_requests", w->active_requests_);
               jb.add_element("max_running_requests", w->max_active_requests_);
-              jb.stop_array();
+              jb.stop_object();
             }
             jb.stop_array();
             jb.stop_object();
