@@ -65,6 +65,7 @@ void ProxyRunningRequest::receive_answer_ex_impl(cocoon_api::proxy_queryAnswerEx
   if (is_completed) {
     CHECK(ans.final_info_);
     tokens_used_ = std::move(ans.final_info_->tokens_used_);
+    worker_run_time_ = ans.final_info_->worker_end_time_ - ans.final_info_->worker_start_time_;
   }
 
   // Add proxy timing headers to the existing HTTP response using Unix timestamps
@@ -83,8 +84,7 @@ void ProxyRunningRequest::receive_answer_ex_impl(cocoon_api::proxy_queryAnswerEx
   } else {
     ton::tl_object_ptr<cocoon_api::client_queryFinalInfo> final_info;
     if (is_completed) {
-      final_info = ton::create_tl_object<cocoon_api::client_queryFinalInfo>(
-          (enable_debug_ ? 1 : 0), tokens_used(), ans.final_info_->worker_debug_, generate_proxy_debug());
+      final_info = create_final_info(*ans.final_info_);
     }
     res = cocoon::create_serialize_tl_object<cocoon_api::client_queryAnswerEx>(
         client_request_id_, std::move(modified_answer), (is_completed ? 1 : 0), std::move(final_info));
@@ -109,7 +109,7 @@ void ProxyRunningRequest::receive_answer_ex_impl(cocoon_api::proxy_queryAnswerEx
 void ProxyRunningRequest::receive_answer(ton::tl_object_ptr<cocoon_api::proxy_queryAnswer> ans) {
   ton::tl_object_ptr<cocoon_api::proxy_queryFinalInfo> final_info;
   if (ans->is_completed_) {
-    final_info = ton::create_tl_object<cocoon_api::proxy_queryFinalInfo>(0, std::move(ans->tokens_used_), "");
+    final_info = create_final_info_from_old(std::move(ans->tokens_used_));
   }
   bool has_final_info = final_info != nullptr;
   receive_answer_ex_impl(*ton::create_tl_object<cocoon_api::proxy_queryAnswerEx>(
@@ -119,10 +119,11 @@ void ProxyRunningRequest::receive_answer(ton::tl_object_ptr<cocoon_api::proxy_qu
 void ProxyRunningRequest::receive_answer_ex_impl(cocoon_api::proxy_queryAnswerErrorEx &ans) {
   LOG(DEBUG) << "proxy request " << id_.to_hex() << ": received error";
 
+  worker_run_time_ = ans.final_info_->worker_end_time_ - ans.final_info_->worker_start_time_;
+
   td::BufferSlice res;
   if (client_proto_version_ > 0) {
-    auto final_info = ton::create_tl_object<cocoon_api::client_queryFinalInfo>(
-        (enable_debug_ ? 1 : 0), tokens_used(), ans.final_info_->worker_debug_, generate_proxy_debug());
+    auto final_info = create_final_info(*ans.final_info_);
     res = cocoon::create_serialize_tl_object<cocoon_api::client_queryAnswerErrorEx>(
         client_request_id_, ans.error_code_, ans.error_, 1, std::move(final_info));
   } else {
@@ -139,8 +140,7 @@ void ProxyRunningRequest::receive_answer_ex_impl(cocoon_api::proxy_queryAnswerEr
 }
 
 void ProxyRunningRequest::receive_answer_error(ton::tl_object_ptr<cocoon_api::proxy_queryAnswerError> ans) {
-  ton::tl_object_ptr<cocoon_api::proxy_queryFinalInfo> final_info =
-      ton::create_tl_object<cocoon_api::proxy_queryFinalInfo>(0, std::move(ans->tokens_used_), "");
+  auto final_info = create_final_info_from_old(std::move(ans->tokens_used_));
   receive_answer_ex_impl(*ton::create_tl_object<cocoon_api::proxy_queryAnswerErrorEx>(
       ans->request_id_, ans->error_code_, ans->error_, 1, std::move(final_info)));
 }
@@ -161,6 +161,7 @@ void ProxyRunningRequest::receive_answer_ex_impl(cocoon_api::proxy_queryAnswerPa
   if (is_completed) {
     CHECK(ans.final_info_);
     tokens_used_ = std::move(ans.final_info_->tokens_used_);
+    worker_run_time_ = ans.final_info_->worker_end_time_ - ans.final_info_->worker_start_time_;
   }
 
   td::BufferSlice res;
@@ -170,8 +171,7 @@ void ProxyRunningRequest::receive_answer_ex_impl(cocoon_api::proxy_queryAnswerPa
   } else {
     ton::tl_object_ptr<cocoon_api::client_queryFinalInfo> final_info;
     if (is_completed) {
-      final_info = ton::create_tl_object<cocoon_api::client_queryFinalInfo>(
-          (enable_debug_ ? 1 : 0), tokens_used(), ans.final_info_->worker_debug_, generate_proxy_debug());
+      final_info = create_final_info(*ans.final_info_);
     }
     res = cocoon::create_serialize_tl_object<cocoon_api::client_queryAnswerPartEx>(
         client_request_id_, std::move(ans.answer_), (is_completed ? 1 : 0), std::move(final_info));
@@ -192,7 +192,7 @@ void ProxyRunningRequest::receive_answer_ex_impl(cocoon_api::proxy_queryAnswerPa
 void ProxyRunningRequest::receive_answer_part(ton::tl_object_ptr<cocoon_api::proxy_queryAnswerPart> ans) {
   ton::tl_object_ptr<cocoon_api::proxy_queryFinalInfo> final_info;
   if (ans->is_completed_) {
-    final_info = ton::create_tl_object<cocoon_api::proxy_queryFinalInfo>(0, std::move(ans->tokens_used_), "");
+    final_info = create_final_info_from_old(std::move(ans->tokens_used_));
   }
   bool has_final_info = final_info != nullptr;
   receive_answer_ex_impl(*ton::create_tl_object<cocoon_api::proxy_queryAnswerPartEx>(
@@ -200,8 +200,7 @@ void ProxyRunningRequest::receive_answer_part(ton::tl_object_ptr<cocoon_api::pro
 }
 
 void ProxyRunningRequest::receive_answer_part_error(ton::tl_object_ptr<cocoon_api::proxy_queryAnswerPartError> ans) {
-  ton::tl_object_ptr<cocoon_api::proxy_queryFinalInfo> final_info =
-      ton::create_tl_object<cocoon_api::proxy_queryFinalInfo>(0, std::move(ans->tokens_used_), "");
+  auto final_info = create_final_info_from_old(std::move(ans->tokens_used_));
   receive_answer_ex_impl(*ton::create_tl_object<cocoon_api::proxy_queryAnswerErrorEx>(
       ans->request_id_, ans->error_code_, ans->error_, 1, std::move(final_info)));
 }
@@ -234,10 +233,11 @@ void ProxyRunningRequest::finish(bool is_success) {
 
   auto work_time = run_time();
   stats_->total_requests_time += work_time;
+  stats_->total_worker_requests_time += worker_run_time_;
 
   td::actor::send_closure(runner_, &ProxyRunner::finish_request, id_, client_request_id_, client_,
                           client_connection_id_, worker_->info, worker_, std::move(tokens_used_), reserved_tokens_,
-                          is_success, work_time);
+                          is_success, work_time, worker_run_time_);
   stop();
 }
 
@@ -248,6 +248,18 @@ std::string ProxyRunningRequest::generate_proxy_debug_inner() {
   v["answer_receive_start_at"] = received_answer_time_unix_;
   v["answer_receive_end_at"] = td::Clocks::system();
   return v.dump();
+}
+
+ton::tl_object_ptr<cocoon_api::client_queryFinalInfo> ProxyRunningRequest::create_final_info(
+    cocoon_api::proxy_queryFinalInfo &info) {
+  return ton::create_tl_object<cocoon_api::client_queryFinalInfo>(
+      (enable_debug_ ? 1 : 0) | (client_proto_version_ >= 2 ? 2 : 0), tokens_used(), info.worker_debug_,
+      generate_proxy_debug(), start_time_unix_, td::Clocks::system(), info.worker_start_time_, info.worker_end_time_);
+}
+
+ton::tl_object_ptr<cocoon_api::proxy_queryFinalInfo> ProxyRunningRequest::create_final_info_from_old(
+    ton::tl_object_ptr<cocoon_api::tokensUsed> tokens_used) {
+  return ton::create_tl_object<cocoon_api::proxy_queryFinalInfo>(0, std::move(tokens_used), "", 0, 0);
 }
 
 }  // namespace cocoon

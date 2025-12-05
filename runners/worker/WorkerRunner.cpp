@@ -7,6 +7,8 @@
 #include "errorcode.h"
 #include "runners/helpers/HttpSender.hpp"
 
+#include "git.h"
+
 #include "td/actor/actor.h"
 #include "td/utils/Random.h"
 #include "td/utils/Time.h"
@@ -14,6 +16,7 @@
 #include "td/utils/common.h"
 #include "td/utils/filesystem.h"
 #include "td/utils/format.h"
+#include "td/utils/port/Clocks.h"
 #include "tl/TlObject.h"
 #include "tl/tl/tl_json.h"
 #include "auto/tl/cocoon_api_json.h"
@@ -57,7 +60,8 @@ void WorkerRunner::receive_request(WorkerProxyInfo &proxy, TcpClient::Connection
       res = cocoon::create_serialize_tl_object<cocoon_api::proxy_queryAnswerErrorEx>(
           req.request_id_, ton::ErrorCode::error, "too many active queries", 1,
           ton::create_tl_object<cocoon_api::proxy_queryFinalInfo>(
-              0, ton::create_tl_object<cocoon_api::tokensUsed>(0, 0, 0, 0, 0), ""));
+              (proto_version >= 2 ? 2 : 0), ton::create_tl_object<cocoon_api::tokensUsed>(0, 0, 0, 0, 0), "",
+              td::Clocks::system(), td::Clocks::system()));
     }
     send_message_to_connection(connection_id, std::move(res));
     return;
@@ -590,6 +594,8 @@ std::string WorkerRunner::http_generate_main() {
       sb << "<span style=\"background-color:Crimson;\">disconnected</a></span>";
     }
     sb << "</td></tr>\n";
+    sb << "<tr><td>version</td><td>commit " << GitMetadata::CommitSHA1() << " at " << GitMetadata::CommitDate()
+       << "</td></tr>\n";
     sb << "</table>\n";
   }
   sb << "<h1>STATS</h1>\n";
@@ -680,6 +686,8 @@ std::string WorkerRunner::http_generate_json_stats() {
       jb.add_element("ton_last_synced_at", r->root_contract_ts);
     }
     jb.add_element("enabled", true);
+    jb.add_element("git_commit", GitMetadata::CommitSHA1());
+    jb.add_element("git_commit_data", GitMetadata::CommitDate());
     jb.stop_object();
   }
   jb.start_object("stats");

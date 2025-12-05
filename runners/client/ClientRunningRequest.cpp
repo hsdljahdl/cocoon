@@ -199,17 +199,6 @@ void ClientRunningRequest::process_answer_ex_impl(cocoon_api::client_queryAnswer
   }
 }
 
-void ClientRunningRequest::process_answer(ton::tl_object_ptr<cocoon_api::client_queryAnswer> ans) {
-  ton::tl_object_ptr<cocoon_api::client_queryFinalInfo> final_info;
-  if (ans->is_completed_) {
-    final_info =
-        ton::create_tl_object<cocoon_api::client_queryFinalInfo>(0, std::move(ans->request_tokens_used_), "", "");
-  }
-  bool has_final_info = final_info != nullptr;
-  process_answer_ex_impl(*ton::create_tl_object<cocoon_api::client_queryAnswerEx>(
-      ans->request_id_, std::move(ans->answer_), has_final_info ? 1 : 0, std::move(final_info)));
-}
-
 void ClientRunningRequest::process_answer_ex_impl(cocoon_api::client_queryAnswerErrorEx &ans) {
   LOG(DEBUG) << "client request " << request_id_.to_hex() << ": received error";
 
@@ -218,13 +207,6 @@ void ClientRunningRequest::process_answer_ex_impl(cocoon_api::client_queryAnswer
   } else {
     finish_request(false, std::move(ans.final_info_));
   }
-}
-
-void ClientRunningRequest::process_answer_error(ton::tl_object_ptr<cocoon_api::client_queryAnswerError> ans) {
-  ton::tl_object_ptr<cocoon_api::client_queryFinalInfo> final_info =
-      ton::create_tl_object<cocoon_api::client_queryFinalInfo>(0, std::move(ans->request_tokens_used_), "", "");
-  process_answer_ex_impl(*ton::create_tl_object<cocoon_api::client_queryAnswerErrorEx>(
-      ans->request_id_, ans->error_code_, ans->error_, 1, std::move(final_info)));
 }
 
 void ClientRunningRequest::process_answer_ex_impl(cocoon_api::client_queryAnswerPartEx &ans) {
@@ -245,24 +227,6 @@ void ClientRunningRequest::process_answer_ex_impl(cocoon_api::client_queryAnswer
   if (is_completed) {
     finish_request(true, std::move(ans.final_info_));
   }
-}
-
-void ClientRunningRequest::process_answer_part(ton::tl_object_ptr<cocoon_api::client_queryAnswerPart> ans) {
-  ton::tl_object_ptr<cocoon_api::client_queryFinalInfo> final_info;
-  if (ans->is_completed_) {
-    final_info =
-        ton::create_tl_object<cocoon_api::client_queryFinalInfo>(0, std::move(ans->request_tokens_used_), "", "");
-  }
-  bool has_final_info = final_info != nullptr;
-  process_answer_ex_impl(*ton::create_tl_object<cocoon_api::client_queryAnswerPartEx>(
-      ans->request_id_, std::move(ans->answer_), has_final_info ? 1 : 0, std::move(final_info)));
-}
-
-void ClientRunningRequest::process_answer_part_error(ton::tl_object_ptr<cocoon_api::client_queryAnswerPartError> ans) {
-  ton::tl_object_ptr<cocoon_api::client_queryFinalInfo> final_info =
-      ton::create_tl_object<cocoon_api::client_queryFinalInfo>(0, std::move(ans->request_tokens_used_), "", "");
-  process_answer_ex_impl(*ton::create_tl_object<cocoon_api::client_queryAnswerErrorEx>(
-      ans->request_id_, ans->error_code_, ans->error_, 1, std::move(final_info)));
 }
 
 void ClientRunningRequest::return_error_str(td::int32 ton_error_code, std::string error,
@@ -323,6 +287,8 @@ void ClientRunningRequest::finish_request(bool is_success,
     stats()->requests_failed++;
   }
   stats()->total_requests_time += run_time();
+  stats()->total_worker_requests_time += (final_info->worker_end_time_ - final_info->worker_start_time_);
+  stats()->total_proxy_requests_time += (final_info->proxy_end_time_ - final_info->proxy_start_time_);
 
   CHECK(!promise_);
   out_payload_->complete_parse();

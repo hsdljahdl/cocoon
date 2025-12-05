@@ -30,7 +30,7 @@ class AmortCounter {
 
   double operator()() {
     relax();
-    return value_;
+    return value_ * inv_period_;
   }
 
  private:

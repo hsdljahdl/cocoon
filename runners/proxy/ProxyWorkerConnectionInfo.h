@@ -48,17 +48,19 @@ struct ProxyWorkerConnectionInfo : public std::enable_shared_from_this<ProxyWork
     running_queries_++;
   }
 
-  void forwarded_query_failed(double work_time) {
+  void forwarded_query_failed(double work_time, double worker_time) {
     running_queries_--;
     total_queries_ += 1;
     total_queries_time_ += work_time;
+    total_worker_queries_time_ += work_time;
     total_queries_failed_ += 1;
   }
 
-  void forwarded_query_success(double work_time) {
+  void forwarded_query_success(double work_time, double worker_time) {
     running_queries_--;
     total_queries_ += 1;
     total_queries_time_ += work_time;
+    total_worker_queries_time_ += work_time;
     total_queries_success_ += 1;
   }
 
@@ -76,6 +78,18 @@ struct ProxyWorkerConnectionInfo : public std::enable_shared_from_this<ProxyWork
     }
   }
 
+  double average_query_overhead() {
+    auto v1 = total_queries_();
+    auto v2 = total_worker_queries_time_();
+    auto v3 = total_queries_time_();
+
+    if (v1 <= 0.1) {
+      return 0;
+    } else {
+      return (v3 - v2) / v1;
+    }
+  }
+
   double queries_success_rate() {
     auto v1 = total_queries_success_();
     auto v2 = total_queries_();
@@ -89,6 +103,7 @@ struct ProxyWorkerConnectionInfo : public std::enable_shared_from_this<ProxyWork
  private:
   std::atomic<td::int32> running_queries_{0};
   AmortCounter total_queries_time_{600.0};
+  AmortCounter total_worker_queries_time_{600.0};
   AmortCounter total_queries_{600.0};
   AmortCounter total_queries_success_{600.0};
   AmortCounter total_queries_failed_{600.0};

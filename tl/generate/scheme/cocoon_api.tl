@@ -189,7 +189,9 @@ client.queryAnswerError error_code:int error:string request_id:int256 request_to
 client.queryAnswerPart answer:bytes is_completed:Bool request_id:int256 request_tokens_used:tokensUsed = client.QueryAnswerPart;
 client.queryAnswerPartError error_code:int error:string request_id:int256 request_tokens_used:tokensUsed = client.QueryAnswerPart;
 
-client.queryFinalInfo flags:# tokens_used:tokensUsed worker_debug:flags.0?string proxy_debug:flags.0?string = client.QueryFinalInfo;
+client.queryFinalInfo flags:# tokens_used:tokensUsed worker_debug:flags.0?string proxy_debug:flags.0?string 
+                              proxy_start_time:flags.1?double proxy_end_time:flags.1?double 
+                              worker_start_time:flags.1?double worker_end_time:flags.1?double = client.QueryFinalInfo;
 client.queryAnswerEx request_id:int256 answer:bytes flags:# final_info:flags.0?client.queryFinalInfo = client.QueryAnswerEx;
 client.queryAnswerErrorEx request_id:int256 error_code:int error:string flags:# final_info:flags.0?client.queryFinalInfo = client.QueryAnswerEx;
 client.queryAnswerPartEx request_id:int256 answer:bytes flags:# final_info:flags.0?client.queryFinalInfo = client.QueryAnswerEx;
@@ -233,7 +235,8 @@ proxy.queryAnswerError error_code:int error:string request_id:int256 tokens_used
 proxy.queryAnswerPart answer:bytes is_completed:Bool request_id:int256 tokens_used:tokensUsed = proxy.QueryAnswerPart;
 proxy.queryAnswerPartError error_code:int error:string request_id:int256 tokens_used:tokensUsed = proxy.QueryAnswerPart;
 
-proxy.queryFinalInfo flags:# tokens_used:tokensUsed worker_debug:flags.0?string = proxy.QueryFinalInfo;
+proxy.queryFinalInfo flags:# tokens_used:tokensUsed worker_debug:flags.0?string 
+                             worker_start_time:flags.1?double worker_end_time:flags.1?double = proxy.QueryFinalInfo;
 proxy.queryAnswerEx request_id:int256 answer:bytes flags:# final_info:flags.0?proxy.queryFinalInfo = proxy.QueryAnswerEx;
 proxy.queryAnswerErrorEx request_id:int256 error_code:int error:string flags:# final_info:flags.0?proxy.queryFinalInfo = proxy.QueryAnswerEx;
 proxy.queryAnswerPartEx request_id:int256 answer:bytes flags:# final_info:flags.0?proxy.queryFinalInfo = proxy.QueryAnswerEx;

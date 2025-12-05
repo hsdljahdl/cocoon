@@ -45,7 +45,7 @@ class ProxyRunner : public BaseRunner {
     return 0;
   }
   static constexpr td::int32 max_proto_version() {
-    return 1;
+    return 2;
   }
 
   /* SIMPLE GETTERS */
@@ -191,7 +191,7 @@ class ProxyRunner : public BaseRunner {
                       std::shared_ptr<ProxyWorkerInfo> worker,
                       std::shared_ptr<ProxyWorkerConnectionInfo> worker_connection,
                       ton::tl_object_ptr<cocoon_api::tokensUsed> tokens_used, td::int64 to_unlock, bool is_success,
-                      double work_time);
+                      double work_time, double worker_run_time);
 
   /* UTILS */
   td::Ref<vm::Cell> sign_and_wrap_message(td::Ref<vm::Cell> msg, const block::StdAddress &return_excesses_to) {

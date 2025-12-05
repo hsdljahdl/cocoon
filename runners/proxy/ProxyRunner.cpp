@@ -17,6 +17,7 @@
 #include "ProxyInboundClientConnection.h"
 #include "ProxyInboundWorkerConnection.h"
 #include "runners/smartcontracts/Opcodes.hpp"
+#include "git.h"
 
 #include "cocoon-tl-utils/cocoon-tl-utils.hpp"
 #include "td/utils/format.h"
@@ -1465,18 +1466,18 @@ void ProxyRunner::finish_request(const td::Bits256 &worker_request_id, const td:
                                  std::shared_ptr<ProxyWorkerInfo> worker,
                                  std::shared_ptr<ProxyWorkerConnectionInfo> worker_connection,
                                  ton::tl_object_ptr<cocoon_api::tokensUsed> tokens_used, td::int64 to_unlock,
-                                 bool is_success, double work_time) {
+                                 bool is_success, double work_time, double worker_run_time) {
   auto to_deduct = tokens_used->total_tokens_used_;
   worker->adjust_balance(to_deduct);
   client->deduct(to_deduct);
   client->release_reserve(to_unlock);
   if (is_success) {
     worker->forwarded_query_success(work_time);
-    worker_connection->forwarded_query_success(work_time);
+    worker_connection->forwarded_query_success(work_time, worker_run_time);
     client->stop_query();
   } else {
     worker->forwarded_query_failed(work_time);
-    worker_connection->forwarded_query_failed(work_time);
+    worker_connection->forwarded_query_failed(work_time, worker_run_time);
     client->stop_query();
   }
   CHECK(running_queries_.erase(worker_request_id));
@@ -1625,6 +1626,8 @@ std::string ProxyRunner::http_generate_main() {
          << "<a href=\"/request/enable\">enable from next config version</a>" << "</span>";
     }
     sb << "</td></tr>\n";
+    sb << "<tr><td>version</td><td>commit " << GitMetadata::CommitSHA1() << " at " << GitMetadata::CommitDate()
+       << "</td></tr>\n";
     sb << "</table>\n";
   }
   {
@@ -1740,6 +1743,8 @@ std::string ProxyRunner::http_generate_json_stats() {
       jb.add_element("ton_last_synced_at", r->root_contract_ts);
     }
     jb.add_element("enabled", is_disabled_until_version_ == 0);
+    jb.add_element("git_commit", GitMetadata::CommitSHA1());
+    jb.add_element("git_commit_data", GitMetadata::CommitDate());
     jb.stop_object();
   }
   jb.start_object("stats");

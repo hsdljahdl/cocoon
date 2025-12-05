@@ -1,5 +1,6 @@
 #pragma once
 
+#include "auto/tl/cocoon_api.h"
 #include "common/bitstring.h"
 #include "errorcode.h"
 #include "runners/BaseRunner.hpp"
@@ -11,6 +12,7 @@
 #include "WorkerStats.h"
 #include "td/utils/port/Clocks.h"
 #include "runners/helpers/CountTokens.hpp"
+#include "tl/TlObject.h"
 #include <memory>
 
 namespace cocoon {
@@ -57,6 +59,8 @@ class WorkerRunningRequest : public td::actor::Actor {
       return generate_worker_debug_inner();
     }
   }
+
+  ton::tl_object_ptr<cocoon_api::proxy_queryFinalInfo> create_final_info();
 
  private:
   std::string generate_worker_debug_inner();

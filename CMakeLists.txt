@@ -317,7 +317,7 @@ set(JSON_Install OFF CACHE INTERNAL "")
 add_subdirectory(third-party/nlohmann-json)
 
 set(COMMON_LIBRARIES
-  tdutils tdactor tdnet tddb cocoon_tl_api tl_api cocoon-tl-utils tonhttp tonlib tdnet_ported cocoon nlohmann_json::nlohmann_json
+  tdutils tdactor tdnet tddb cocoon_tl_api tl_api cocoon-tl-utils tonhttp tonlib tdnet_ported cocoon git nlohmann_json::nlohmann_json
 )
 
 add_library(cocoon_common ${COMMON_SOURCE})

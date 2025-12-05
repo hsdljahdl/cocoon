@@ -10,6 +10,7 @@
 #include "td/utils/common.h"
 #include "td/utils/filesystem.h"
 #include "cocoon-tl-utils/cocoon-tl-utils.hpp"
+#include "git.h"
 #include <memory>
 
 namespace cocoon {
@@ -320,38 +321,6 @@ void ClientRunner::receive_message(TcpClient::ConnectionId connection_id, td::Bu
   auto magic = get_tl_magic(query);
   LOG(DEBUG) << "received message with magic = " << magic;
   switch (magic) {
-    case cocoon_api::client_queryAnswer::ID: {
-      auto obj = cocoon::fetch_tl_object<cocoon_api::client_queryAnswer>(std::move(query), true).move_as_ok();
-      auto it = running_queries_.find(obj->request_id_);
-      if (it != running_queries_.end()) {
-        td::actor::send_closure(it->second, &ClientRunningRequest::process_answer, std::move(obj));
-      }
-      return;
-    }
-    case cocoon_api::client_queryAnswerError::ID: {
-      auto obj = cocoon::fetch_tl_object<cocoon_api::client_queryAnswerError>(std::move(query), true).move_as_ok();
-      auto it = running_queries_.find(obj->request_id_);
-      if (it != running_queries_.end()) {
-        td::actor::send_closure(it->second, &ClientRunningRequest::process_answer_error, std::move(obj));
-      }
-      return;
-    }
-    case cocoon_api::client_queryAnswerPart::ID: {
-      auto obj = cocoon::fetch_tl_object<cocoon_api::client_queryAnswerPart>(std::move(query), true).move_as_ok();
-      auto it = running_queries_.find(obj->request_id_);
-      if (it != running_queries_.end()) {
-        td::actor::send_closure(it->second, &ClientRunningRequest::process_answer_part, std::move(obj));
-      }
-      return;
-    }
-    case cocoon_api::client_queryAnswerPartError::ID: {
-      auto obj = cocoon::fetch_tl_object<cocoon_api::client_queryAnswerPartError>(std::move(query), true).move_as_ok();
-      auto it = running_queries_.find(obj->request_id_);
-      if (it != running_queries_.end()) {
-        td::actor::send_closure(it->second, &ClientRunningRequest::process_answer_part_error, std::move(obj));
-      }
-      return;
-    }
     case cocoon_api::client_queryAnswerEx::ID:
     case cocoon_api::client_queryAnswerPartEx::ID:
     case cocoon_api::client_queryAnswerErrorEx::ID: {
@@ -608,6 +577,8 @@ std::string ClientRunner::http_generate_main() {
       sb << "<span style=\"background-color:Crimson;\">no</span>";
     }
     sb << "</td></tr>\n";
+    sb << "<tr><td>version</td><td>commit " << GitMetadata::CommitSHA1() << " at " << GitMetadata::CommitDate()
+       << "</td></tr>\n";
     sb << "</table>\n";
   }
   {
@@ -620,6 +591,8 @@ std::string ClientRunner::http_generate_main() {
     sb << "<tr><td>bytes received</td>" << stats_->request_bytes_received.to_html_row() << "</tr>\n";
     sb << "<tr><td>bytes sent</td>" << stats_->answer_bytes_sent.to_html_row() << "</tr>\n";
     sb << "<tr><td>time</td>" << stats_->total_requests_time.to_html_row() << "</tr>\n";
+    sb << "<tr><td>proxy time</td>" << stats_->total_proxy_requests_time.to_html_row() << "</tr>\n";
+    sb << "<tr><td>worker time</td>" << stats_->total_worker_requests_time.to_html_row() << "</tr>\n";
     sb << "</table>\n";
   }
 
@@ -681,6 +654,8 @@ std::string ClientRunner::http_generate_json_stats() {
       jb.add_element("ton_last_synced_at", r->root_contract_ts);
     }
     jb.add_element("enabled", true);
+    jb.add_element("git_commit", GitMetadata::CommitSHA1());
+    jb.add_element("git_commit_data", GitMetadata::CommitDate());
     jb.stop_object();
   }
   {

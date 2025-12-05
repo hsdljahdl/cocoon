@@ -31,7 +31,7 @@ class ClientRunner : public BaseRunner {
     return 1;
   }
   static constexpr td::int32 max_proto_version() {
-    return 1;
+    return 2;
   }
   static constexpr size_t request_log_size() {
     return 1;

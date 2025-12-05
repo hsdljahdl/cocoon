@@ -9,6 +9,8 @@ struct ClientStats {
   AmortCounterList requests_failed;
   AmortCounterList requests_success;
   AmortCounterList total_requests_time;
+  AmortCounterList total_worker_requests_time;
+  AmortCounterList total_proxy_requests_time;
   AmortCounterList request_bytes_received;
   AmortCounterList answer_bytes_sent;
 

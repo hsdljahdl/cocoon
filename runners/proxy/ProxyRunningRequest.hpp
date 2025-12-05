@@ -78,6 +78,10 @@ struct ProxyRunningRequest : public td::actor::Actor {
     }
   }
 
+  ton::tl_object_ptr<cocoon_api::client_queryFinalInfo> create_final_info(cocoon_api::proxy_queryFinalInfo &info);
+  ton::tl_object_ptr<cocoon_api::proxy_queryFinalInfo> create_final_info_from_old(
+      ton::tl_object_ptr<cocoon_api::tokensUsed> info);
+
  private:
   std::string generate_proxy_debug_inner();
   td::Bits256 id_;
@@ -111,6 +115,7 @@ struct ProxyRunningRequest : public td::actor::Actor {
       ton::create_tl_object<cocoon_api::tokensUsed>(0, 0, 0, 0, 0);
 
   td::int64 coefficient_;
+  double worker_run_time_{0};
 };
 
 }  // namespace cocoon

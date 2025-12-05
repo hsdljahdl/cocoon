@@ -51,11 +51,6 @@ class ClientRunningRequest : public td::actor::Actor {
 
   void on_payload_downloaded(td::BufferSlice downloaded_payload);
 
-  void process_answer(ton::tl_object_ptr<cocoon_api::client_queryAnswer> ans);
-  void process_answer_error(ton::tl_object_ptr<cocoon_api::client_queryAnswerError> ans);
-  void process_answer_part(ton::tl_object_ptr<cocoon_api::client_queryAnswerPart> ans);
-  void process_answer_part_error(ton::tl_object_ptr<cocoon_api::client_queryAnswerPartError> ans);
-
   void process_answer_ex_impl(cocoon_api::client_queryAnswerEx &ans);
   void process_answer_ex_impl(cocoon_api::client_queryAnswerPartEx &ans);
   void process_answer_ex_impl(cocoon_api::client_queryAnswerErrorEx &ans);
