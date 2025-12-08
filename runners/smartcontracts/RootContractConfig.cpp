@@ -69,10 +69,127 @@ td::Result<std::unique_ptr<RootContractConfig>> RootContractConfig::load_from_st
       return td::Status::Error("cannot fetch root contract owner");
     }
 
+    bool exist_bit;
+
     auto data_cell = cell_slice.fetch_ref();
+
+    /*
+     * Parsing params_cell first to get struct_version. Because of the history-related reasons
+     * we use struct_version as the struct version of the whole smartcontract data format
+     */
+    auto params_cell = cell_slice.fetch_ref();
+    vm::CellSlice params_cs{vm::NoVm{}, params_cell};
+
+    td::uint32 struct_version;
+    if (!params_cs.fetch_uint_to(8, struct_version)) {
+      return td::Status::Error("cannot fetch struct_version");
+    }
+
+    if (struct_version > 3) {
+      return td::Status::Error(PSTRING() << "unexpected params struct version: " << struct_version);
+    }
+
+    td::uint32 params_version;
+    if (!params_cs.fetch_uint_to(32, params_version)) {
+      return td::Status::Error("cannot fetch params_version");
+    }
+
+    td::uint32 unique_id;
+    if (!params_cs.fetch_uint_to(32, unique_id)) {
+      return td::Status::Error("cannot fetch unique_id");
+    }
+
+    bool is_test;
+    if (!params_cs.fetch_bool_to(is_test)) {
+      return td::Status::Error("cannot fetch is_test");
+    }
+
+    td::uint64 price_per_token;
+    if (!fetch_coins(params_cs, price_per_token)) {
+      return td::Status::Error("cannot fetch price per token");
+    }
+
+    td::uint64 worker_fee_per_token;
+    if (!fetch_coins(params_cs, worker_fee_per_token)) {
+      return td::Status::Error("cannot fetch worker fee per token");
+    }
+
+    td::int32 prompt_tokens_price_multiplier = 10000;
+    if (struct_version >= 3) {
+      if (!params_cs.fetch_uint_to(32, prompt_tokens_price_multiplier)) {
+        return td::Status::Error("cannot fetch prompt tokens price multiplier");
+      }
+    }
+    td::int32 cached_tokens_price_multiplier = 10000;
+    if (struct_version >= 2) {
+      if (!params_cs.fetch_uint_to(32, cached_tokens_price_multiplier)) {
+        return td::Status::Error("cannot fetch cached tokens price multiplier");
+      }
+    }
+    td::int32 completion_tokens_price_multiplier = 10000;
+    if (struct_version >= 3) {
+      if (!params_cs.fetch_uint_to(32, completion_tokens_price_multiplier)) {
+        return td::Status::Error("cannot fetch completion tokens price multiplier");
+      }
+    }
+    td::int32 reasoning_tokens_price_multiplier = 10000;
+    if (struct_version >= 2) {
+      if (!params_cs.fetch_uint_to(32, reasoning_tokens_price_multiplier)) {
+        return td::Status::Error("cannot fetch reasoning tokens price multiplier");
+      }
+    }
+
+    td::uint32 proxy_delay_before_close;
+    if (!params_cs.fetch_uint_to(32, proxy_delay_before_close)) {
+      return td::Status::Error("cannot fetch proxy delay before close");
+    }
+
+    td::uint32 client_delay_before_close;
+    if (!params_cs.fetch_uint_to(32, client_delay_before_close)) {
+      return td::Status::Error("cannot fetch client delay before close");
+    }
+
+    td::uint64 min_proxy_stake = to_nano(1.0);
+    if (struct_version >= 1) {
+      if (!fetch_coins(params_cs, min_proxy_stake)) {
+        return td::Status::Error("cannot fetch min proxy stake");
+      }
+    }
+
+    td::uint64 min_client_stake = to_nano(1.0);
+    if (struct_version >= 1) {
+      if (!fetch_coins(params_cs, min_client_stake)) {
+        return td::Status::Error("cannot fetch min client stake");
+      }
+    }
+
+    if (!params_cs.fetch_bool_to(exist_bit)) {
+      return td::Status::Error("failed to get dict exist bit");
+    }
+    if (exist_bit) {
+      config->proxy_sc_code_ = params_cs.fetch_ref();
+    }
+
+    if (!params_cs.fetch_bool_to(exist_bit)) {
+      return td::Status::Error("failed to get dict exist bit");
+    }
+    if (exist_bit) {
+      config->worker_sc_code_ = params_cs.fetch_ref();
+    }
+
+    if (!params_cs.fetch_bool_to(exist_bit)) {
+      return td::Status::Error("failed to get dict exist bit");
+    }
+    if (exist_bit) {
+      config->client_sc_code_ = params_cs.fetch_ref();
+    }
+
+    if (!params_cs.empty_ext()) {
+      return td::Status::Error("extra data in params in root contract");
+    }
+
     vm::CellSlice data{vm::NoVm{}, data_cell};
 
-    bool exist_bit;
     if (!data.fetch_bool_to(exist_bit)) {
       return td::Status::Error("failed to get dict exist bit");
     }
@@ -192,117 +309,6 @@ td::Result<std::unique_ptr<RootContractConfig>> RootContractConfig::load_from_st
       return td::Status::Error("cannot fetch version");
     }
 
-    auto params_cell = cell_slice.fetch_ref();
-    vm::CellSlice params_cs{vm::NoVm{}, params_cell};
-
-    td::uint32 params_struct_version;
-    if (!params_cs.fetch_uint_to(8, params_struct_version)) {
-      return td::Status::Error("cannot fetch params_struct_version");
-    }
-
-    if (params_struct_version > 3) {
-      return td::Status::Error(PSTRING() << "unexpected params struct version: " << params_struct_version);
-    }
-
-    td::uint32 params_version;
-    if (!params_cs.fetch_uint_to(32, params_version)) {
-      return td::Status::Error("cannot fetch params_version");
-    }
-
-    td::uint32 unique_id;
-    if (!params_cs.fetch_uint_to(32, unique_id)) {
-      return td::Status::Error("cannot fetch unique_id");
-    }
-
-    bool is_test;
-    if (!params_cs.fetch_bool_to(is_test)) {
-      return td::Status::Error("cannot fetch is_test");
-    }
-
-    td::uint64 price_per_token;
-    if (!fetch_coins(params_cs, price_per_token)) {
-      return td::Status::Error("cannot fetch price per token");
-    }
-
-    td::uint64 worker_fee_per_token;
-    if (!fetch_coins(params_cs, worker_fee_per_token)) {
-      return td::Status::Error("cannot fetch worker fee per token");
-    }
-
-    td::int32 prompt_tokens_price_multiplier = 10000;
-    if (params_struct_version >= 3) {
-      if (!params_cs.fetch_uint_to(32, prompt_tokens_price_multiplier)) {
-        return td::Status::Error("cannot fetch prompt tokens price multiplier");
-      }
-    }
-    td::int32 cached_tokens_price_multiplier = 10000;
-    if (params_struct_version >= 2) {
-      if (!params_cs.fetch_uint_to(32, cached_tokens_price_multiplier)) {
-        return td::Status::Error("cannot fetch cached tokens price multiplier");
-      }
-    }
-    td::int32 completion_tokens_price_multiplier = 10000;
-    if (params_struct_version >= 3) {
-      if (!params_cs.fetch_uint_to(32, completion_tokens_price_multiplier)) {
-        return td::Status::Error("cannot fetch completion tokens price multiplier");
-      }
-    }
-    td::int32 reasoning_tokens_price_multiplier = 10000;
-    if (params_struct_version >= 2) {
-      if (!params_cs.fetch_uint_to(32, reasoning_tokens_price_multiplier)) {
-        return td::Status::Error("cannot fetch reasoning tokens price multiplier");
-      }
-    }
-
-    td::uint32 proxy_delay_before_close;
-    if (!params_cs.fetch_uint_to(32, proxy_delay_before_close)) {
-      return td::Status::Error("cannot fetch proxy delay before close");
-    }
-
-    td::uint32 client_delay_before_close;
-    if (!params_cs.fetch_uint_to(32, client_delay_before_close)) {
-      return td::Status::Error("cannot fetch client delay before close");
-    }
-
-    td::uint64 min_proxy_stake = to_nano(1.0);
-    if (params_struct_version >= 1) {
-      if (!fetch_coins(params_cs, min_proxy_stake)) {
-        return td::Status::Error("cannot fetch min proxy stake");
-      }
-    }
-
-    td::uint64 min_client_stake = to_nano(1.0);
-    if (params_struct_version >= 1) {
-      if (!fetch_coins(params_cs, min_client_stake)) {
-        return td::Status::Error("cannot fetch min client stake");
-      }
-    }
-
-    if (!params_cs.fetch_bool_to(exist_bit)) {
-      return td::Status::Error("failed to get dict exist bit");
-    }
-    if (exist_bit) {
-      config->proxy_sc_code_ = params_cs.fetch_ref();
-    }
-
-    if (!params_cs.fetch_bool_to(exist_bit)) {
-      return td::Status::Error("failed to get dict exist bit");
-    }
-    if (exist_bit) {
-      config->worker_sc_code_ = params_cs.fetch_ref();
-    }
-
-    if (!params_cs.fetch_bool_to(exist_bit)) {
-      return td::Status::Error("failed to get dict exist bit");
-    }
-    if (exist_bit) {
-      config->client_sc_code_ = params_cs.fetch_ref();
-    }
-
-    if (!params_cs.empty_ext()) {
-      return td::Status::Error("extra data in params in root contract");
-    }
-
     if (!cell_slice.empty_ext()) {
       return td::Status::Error("extra data in root contract");
     }
@@ -326,7 +332,7 @@ td::Result<std::unique_ptr<RootContractConfig>> RootContractConfig::load_from_st
     //config->workers_
     config->version_ = version;
 
-    config->struct_version_ = (td::uint8)params_struct_version;
+    config->struct_version_ = (td::uint8)struct_version;
     config->params_version_ = params_version;
     config->unique_id_ = unique_id;
     config->is_test_ = is_test;
